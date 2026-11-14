@@ -1,0 +1,60 @@
+# =====================================================================
+# T'AAN - configuración del backend
+# Los secretos NUNCA se escriben aquí: se leen de variables de entorno.
+# =====================================================================
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1          # todas las rutas del contrato cuelgan de /api/v1
+
+spring:
+  application:
+    name: taan-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:taan}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:taan}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate           # el esquema lo manda Flyway; Hibernate solo verifica
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true                  # ejecuta db/migration/V1__esquema_inicial.sql al arrancar
+  servlet:
+    multipart:
+      max-file-size: 5MB           # por fotografía
+      max-request-size: 20MB       # reporte completo (hasta 3 fotografías)
+
+taan:
+  jwt:
+    secreto: ${TAAN_JWT_SECRETO}   # obligatorio, al menos 32 caracteres
+    minutos-acceso: 15
+    dias-refresco: 30
+    horas-verificacion: 24         # vigencia del enlace de verificación de correo (CU-24)
+  limites:                         # intentos de inicio de sesión por cuenta y por origen (RNF-009)
+    intentos-fallidos: 5
+    ventana-minutos: 15
+  web:
+    url: ${TAAN_WEB_URL:http://localhost:4200}   # base de los enlaces que viajan por correo
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}              # vacío = «Continuar con Google» deshabilitado
+  admin:
+    correo: ${TAAN_ADMIN_CORREO:admin@taan.mx}
+    password: ${TAAN_ADMIN_PASSWORD:} # solo se usa la primera vez, para crear la cuenta
+  cors:
+    origenes: http://localhost:4200,http://localhost:8100,capacitor://localhost,https://localhost
+  ia:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      modelo: ${GEMINI_MODELO:gemini-flash-lite-latest}   # verificar el código vigente en Google AI Studio
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      modelo: ${GROQ_MODELO:llama-3.3-70b-versatile}      # verificar el modelo vigente en la consola de Groq
+  captcha:
+    secreto: ${TURNSTILE_SECRETO:}
+  archivos:
+    directorio: ${TAAN_ARCHIVOS:./archivos}

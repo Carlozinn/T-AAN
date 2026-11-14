@@ -1,0 +1,491 @@
+// =====================================================================
+// T'AAN - Plataforma inteligente de reportes y gestión ciudadana
+// Modelo de datos (DBML para dbdiagram.io) — Cuarto borrador
+// Base de datos destino: PostgreSQL + PostGIS
+// =====================================================================
+
+Project TAAN {
+  database_type: 'PostgreSQL'
+  Note: '''
+  El ciudadano participa con una cuenta verificada (Google o correo).
+  Al eliminar una cuenta, sus reportes se conservan desvinculados
+  (ciudadano_id queda NULL). Las restricciones descritas en las notas
+  (CHECK, borrados automáticos, cifrado) se implementan en el script SQL
+  y en el backend.
+  '''
+}
+
+// ---------------------------------------------------------------------
+// Catálogos fijos (enums)
+// ---------------------------------------------------------------------
+
+Enum metodo_acceso {
+  google
+  correo
+}
+
+Enum estado_cuenta {
+  activa
+  suspendida
+}
+
+Enum estado_senalamiento {
+  pendiente
+  aceptado [note: 'Derivó en suspensión']
+  desestimado
+}
+
+Enum rol_usuario {
+  administrador
+  coordinacion
+  personal_area
+}
+
+Enum nivel_participacion {
+  integrada
+  conectada [note: 'Iteración posterior al MVP']
+  externa
+}
+
+Enum estado_reporte {
+  pendiente_canalizacion [note: 'Transitorio; el ciudadano lo ve como "En revisión"']
+  recibido
+  validado
+  asignado
+  en_atencion
+  resuelto
+  reabierto
+  rechazado
+  duplicado
+  canalizacion_externa
+}
+
+Enum motivo_canalizacion {
+  regla [note: 'Una regla aplicable de mayor prioridad']
+  sin_regla [note: 'Organización receptora por defecto']
+  empate_reglas [note: 'Organización receptora por defecto']
+  sin_clasificacion [note: 'La IA falló tras los reintentos']
+  redireccion [note: 'Redirigido por personal institucional (CU-21)']
+}
+
+Enum motivo_rechazo {
+  no_corresponde [note: 'No corresponde a esta institución']
+  informacion_insuficiente
+  ya_atendido
+  no_servicio_publico
+}
+
+Enum origen_reporte {
+  web
+  app
+}
+
+Enum tipo_evidencia {
+  ciudadana
+  atencion
+}
+
+Enum tipo_canal {
+  telefono
+  sitio_web
+  correo
+  otro
+}
+
+Enum resultado_acceso {
+  exitoso
+  fallido
+  limitado [note: 'Bloqueado temporalmente por RNF-009']
+}
+
+Enum resultado_envio {
+  aceptado
+  rechazado_limite
+  rechazado_verificacion
+  rechazado_honeypot
+  rechazado_suspension
+}
+
+Enum formato_informe {
+  pdf
+  hoja_calculo
+}
+
+// ---------------------------------------------------------------------
+// Cuentas ciudadanas (RF-001, RF-012, RF-038, RF-043)
+// ---------------------------------------------------------------------
+
+Table ciudadano {
+  id bigint [pk, increment]
+  nombre varchar(150) [not null]
+  correo varchar(150) [not null, unique]
+  metodo_acceso metodo_acceso [not null]
+  google_sub varchar(255) [unique, note: 'Identificador estable de Google; solo cuentas Google']
+  password_hash varchar(255) [note: 'Solo cuentas de correo; nunca texto plano (RNF-006)']
+  correo_verificado boolean [not null, default: false, note: 'Google siempre true; correo requiere confirmar el enlace. Sin verificar no puede reportar']
+  telefono_cifrado text [note: 'Obligatorio antes del primer reporte (RF-038); se borra al eliminar la cuenta']
+  avisos_correo boolean [not null, default: true, note: 'Preferencia de avisos por correo (RF-044), configurable en el perfil']
+  estado estado_cuenta [not null, default: 'activa']
+  motivo_suspension text [note: 'Obligatorio si estado = suspendida']
+  suspendida_hasta timestamptz [note: 'NULL con estado suspendida = indefinida (reincidencia)']
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+
+  Note: '''
+  CHECK: metodo google implica google_sub no nulo y password_hash nulo;
+  metodo correo implica password_hash no nulo.
+  Eliminar la cuenta borra esta fila; los reportes quedan con
+  ciudadano_id en NULL (ON DELETE SET NULL): desvinculados, no borrados.
+  Una cuenta suspendida consulta «Mis reportes», pero no crea ni reabre.
+  '''
+}
+
+Table suscripcion_aviso {
+  id bigint [pk, increment]
+  ciudadano_id bigint [not null, ref: > ciudadano.id]
+  token_dispositivo varchar(500) [not null, note: 'Identificador de Firebase Cloud Messaging']
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (ciudadano_id, token_dispositivo) [unique]
+  }
+
+  Note: 'Avisos push de la app por cuenta (RF-034). Se elimina al cerrar sesión en el dispositivo o al eliminar la cuenta (ON DELETE CASCADE).'
+}
+
+Table senalamiento_cuenta {
+  id bigint [pk, increment]
+  reporte_id bigint [not null, ref: > reporte.id]
+  ciudadano_id bigint [ref: > ciudadano.id, note: 'Cuenta afectada; SET NULL si la cuenta se elimina']
+  senalado_por bigint [not null, ref: > usuario.id, note: 'Personal institucional que señala (CU-26)']
+  motivo text [not null]
+  estado estado_senalamiento [not null, default: 'pendiente']
+  resuelto_por bigint [ref: > usuario.id, note: 'Administrador que resuelve']
+  resolucion text
+  creado_en timestamptz [not null, default: `now()`]
+  resuelto_en timestamptz
+
+  Note: 'Historial de moderación (RF-043). La suspensión vigente se refleja en ciudadano; aquí queda la auditoría completa.'
+}
+
+// ---------------------------------------------------------------------
+// Configuración institucional
+// ---------------------------------------------------------------------
+
+Table organizacion {
+  id bigint [pk, increment]
+  nombre varchar(200) [not null, unique]
+  nivel_participacion nivel_participacion [not null]
+  plazo_reapertura_dias int [not null, default: 15, note: 'Plazo para que el ciudadano reabra un reporte resuelto (RF-042)']
+  activa boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+
+  Note: 'Ayuntamientos y otras instituciones. Desactivar no elimina historial (RF-027).'
+}
+
+Table tiempo_objetivo {
+  organizacion_id bigint [not null, ref: > organizacion.id]
+  estado estado_reporte [not null]
+  horas_amarillo int [not null, note: 'A partir de aquí el reporte está "por vencer"']
+  horas_rojo int [not null, note: 'A partir de aquí el reporte está "atrasado". CHECK: horas_rojo > horas_amarillo']
+
+  indexes {
+    (organizacion_id, estado) [pk]
+  }
+
+  Note: 'Semáforo de antigüedad configurado por la coordinación (RF-041).'
+}
+
+Table area {
+  id bigint [pk, increment]
+  organizacion_id bigint [not null, ref: > organizacion.id]
+  nombre varchar(150) [not null]
+  telefono_publico varchar(20) [note: 'Contacto oficial que ve el ciudadano si su reporte es rechazado']
+  correo_publico varchar(150)
+  activa boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organizacion_id, nombre) [unique]
+  }
+
+  Note: 'Áreas internas gestionadas por la coordinación de cada organización (RF-033, CU-13).'
+}
+
+Table usuario {
+  id bigint [pk, increment]
+  correo varchar(150) [not null, unique]
+  password_hash varchar(255) [not null, note: 'Hash seguro; nunca texto plano (RNF-006)']
+  nombre varchar(150) [not null]
+  rol rol_usuario [not null]
+  organizacion_id bigint [ref: > organizacion.id, note: 'Obligatoria para coordinación y personal de área; nula para administrador']
+  area_id bigint [ref: > area.id, note: 'Obligatoria solo para personal de área']
+  credencial_temporal boolean [not null, default: false, note: 'Debe cambiar la contraseña en el siguiente acceso']
+  activo boolean [not null, default: true]
+  ultimo_acceso timestamptz
+  creado_en timestamptz [not null, default: `now()`]
+
+  Note: '''
+  Usuarios institucionales: personal de área, coordinación y administradores
+  de T'AAN. Las cuentas ciudadanas viven en la tabla ciudadano.
+  CHECK: administrador sin organización; coordinación con organización y sin
+  área; personal de área con organización y área.
+  '''
+}
+
+Table categoria {
+  id bigint [pk, increment]
+  nombre varchar(150) [not null]
+  categoria_padre_id bigint [ref: > categoria.id, note: 'Si tiene padre, es una subcategoría']
+  activa boolean [not null, default: true]
+
+  indexes {
+    (nombre, categoria_padre_id) [unique]
+  }
+
+  Note: 'Catálogo común para todos los municipios, administrado por el administrador (RF-028).'
+}
+
+Table zona_cobertura {
+  id bigint [pk, increment]
+  nombre varchar(150) [not null]
+  geometria "geometry(MultiPolygon, 4326)" [not null, note: 'Polígono PostGIS; puede ser el límite municipal del INEGI']
+  organizacion_receptora_id bigint [not null, ref: > organizacion.id, note: 'Recibe los reportes sin regla aplicable (RF-037)']
+  activa boolean [not null, default: true]
+  creado_en timestamptz [not null, default: `now()`]
+
+  Note: 'Índice espacial GIST sobre geometria (se crea en el script SQL).'
+}
+
+Table zona_organizacion {
+  zona_id bigint [not null, ref: > zona_cobertura.id]
+  organizacion_id bigint [not null, ref: > organizacion.id]
+
+  indexes {
+    (zona_id, organizacion_id) [pk]
+  }
+
+  Note: 'Organizaciones con cobertura en cada zona; define a quién se puede redirigir un reporte (CU-21).'
+}
+
+Table regla_canalizacion {
+  id bigint [pk, increment]
+  zona_id bigint [not null, ref: > zona_cobertura.id]
+  categoria_id bigint [not null, ref: > categoria.id]
+  organizacion_id bigint [not null, ref: > organizacion.id, note: 'Organización destino']
+  area_id bigint [ref: > area.id, note: 'Área destino opcional, definida por la coordinación']
+  prioridad int [not null, default: 0, note: 'Gana la de mayor valor; un empate equivale a no tener regla']
+  vigente_desde date [not null, default: `current_date`]
+  vigente_hasta date
+  activa boolean [not null, default: true]
+
+  indexes {
+    (zona_id, categoria_id, activa)
+  }
+
+  Note: 'Relación territorio-categoría-organización-área (RF-030). CHECK: el área pertenece a la organización destino.'
+}
+
+Table canal_externo {
+  id bigint [pk, increment]
+  organizacion_id bigint [not null, ref: > organizacion.id, note: 'Debe ser una organización externa']
+  tipo tipo_canal [not null]
+  valor varchar(255) [not null, note: 'Número, URL o correo oficial']
+  fuente_verificacion varchar(255) [not null, note: 'Dónde se verificó que el canal es oficial']
+  activo boolean [not null, default: true]
+
+  Note: 'Canales oficiales que se muestran al ciudadano en canalización externa (RF-036).'
+}
+
+// ---------------------------------------------------------------------
+// Plantilla municipal (RF-039, CU-22)
+// ---------------------------------------------------------------------
+
+Table plantilla_area {
+  id bigint [pk, increment]
+  nombre varchar(150) [not null, unique, note: 'Ej.: Obras Públicas, Alumbrado Público, Limpia Pública']
+  descripcion text [note: 'Servicio municipal que atiende (art. 115 constitucional)']
+}
+
+Table plantilla_correspondencia {
+  plantilla_area_id bigint [not null, ref: > plantilla_area.id]
+  categoria_id bigint [not null, ref: > categoria.id]
+
+  indexes {
+    (plantilla_area_id, categoria_id) [pk]
+  }
+
+  Note: 'Qué categoría atiende cada área estándar. Se copia a la organización al configurarla.'
+}
+
+// ---------------------------------------------------------------------
+// Reportes
+// ---------------------------------------------------------------------
+
+Table reporte {
+  id bigint [pk, increment]
+  folio varchar(20) [not null, unique]
+  ciudadano_id bigint [ref: > ciudadano.id, note: 'ON DELETE SET NULL: si la cuenta se elimina, el reporte se conserva desvinculado']
+  descripcion text [not null, note: 'Texto original del ciudadano; nunca se sobrescribe']
+  ubicacion "geometry(Point, 4326)" [not null]
+  origen origen_reporte [not null]
+  estado estado_reporte [not null, default: 'pendiente_canalizacion']
+  fecha_ultimo_estado timestamptz [not null, default: `now()`, note: 'Base del semáforo de antigüedad']
+  resultado_ia jsonb [note: 'Salida estructurada validada de la IA']
+  intentos_ia int [not null, default: 0]
+  categoria_sugerida_id bigint [ref: > categoria.id, note: 'Propuesta por la IA']
+  categoria_final_id bigint [ref: > categoria.id, note: 'Confirmada o corregida por el personal']
+  posible_contenido_no_valido boolean [not null, default: false, note: 'Marca informativa de la IA; no rechaza el reporte']
+  organizacion_id bigint [ref: > organizacion.id, note: 'Nula solo mientras está pendiente de canalización']
+  area_id bigint [ref: > area.id]
+  motivo_canalizacion motivo_canalizacion
+  motivo_rechazo motivo_rechazo [note: 'Obligatorio si estado = rechazado']
+  texto_rechazo_publico text [note: 'Texto opcional visible para el ciudadano']
+  reporte_principal_id bigint [ref: > reporte.id, note: 'Obligatorio si estado = duplicado']
+  reabierto boolean [not null, default: false, note: 'Solo puede reabrirse una vez (RF-042)']
+  fecha_resolucion timestamptz
+  creado_en timestamptz [not null, default: `now()`]
+  actualizado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (ciudadano_id, creado_en)
+    (organizacion_id, estado)
+    (area_id, estado)
+    reporte_principal_id
+    creado_en
+  }
+
+  Note: '''
+  Núcleo del sistema. Índice espacial GIST sobre ubicacion (en el script SQL).
+  CHECK: rechazado implica motivo_rechazo no nulo; duplicado implica
+  reporte_principal_id no nulo. El teléfono del ciudadano no se duplica aquí:
+  el personal lo consulta a través de la cuenta. «Reportado por N personas»
+  se obtiene contando los reportes cuyo reporte_principal_id apunta a este.
+  '''
+}
+
+Table evidencia {
+  id bigint [pk, increment]
+  reporte_id bigint [not null, ref: > reporte.id]
+  tipo tipo_evidencia [not null]
+  ruta_archivo varchar(500) [not null, note: 'Ubicación en el almacenamiento de archivos']
+  tipo_mime varchar(50) [not null]
+  tamano_bytes int [not null]
+  usuario_id bigint [ref: > usuario.id, note: 'Nulo si la sube el ciudadano']
+  creado_en timestamptz [not null, default: `now()`]
+
+  Note: 'Fotografías ciudadanas (sin metadatos GPS) y evidencia de atención (RNF-017).'
+}
+
+Table historial_reporte {
+  id bigint [pk, increment]
+  reporte_id bigint [not null, ref: > reporte.id]
+  estado_anterior estado_reporte
+  estado_nuevo estado_reporte
+  accion varchar(50) [not null, note: 'Ej.: canalizacion, validacion, asignacion, reasignacion, redireccion, resolucion, reapertura, senalamiento, suspension']
+  organizacion_anterior_id bigint [ref: > organizacion.id]
+  organizacion_nueva_id bigint [ref: > organizacion.id]
+  area_anterior_id bigint [ref: > area.id]
+  area_nueva_id bigint [ref: > area.id]
+  observaciones text
+  visible_ciudadano boolean [not null, default: false]
+  usuario_id bigint [ref: > usuario.id, note: 'Nulo si actuó el sistema o el ciudadano']
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (reporte_id, creado_en)
+  }
+
+  Note: 'Solo inserciones: ningún registro se modifica ni se borra (RF-017, RNF-018).'
+}
+
+// ---------------------------------------------------------------------
+// Seguridad y auditoría
+// ---------------------------------------------------------------------
+
+Table intento_acceso {
+  id bigint [pk, increment]
+  origen_ip inet [not null]
+  ciudadano_id bigint [ref: > ciudadano.id, note: 'Si el intento corresponde a una cuenta ciudadana existente']
+  usuario_id bigint [ref: > usuario.id, note: 'Si corresponde a un usuario institucional']
+  resultado resultado_acceso [not null]
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (origen_ip, creado_en)
+    (ciudadano_id, creado_en)
+  }
+
+  Note: 'Limita intentos de inicio de sesión por cuenta y por origen (RNF-009). No almacena contraseñas ni revela si un correo existe.'
+}
+
+Table registro_envio {
+  id bigint [pk, increment]
+  origen_ip inet [not null]
+  ciudadano_id bigint [ref: > ciudadano.id, note: 'Cuenta que envió; permite el límite por cuenta (RNF-022)']
+  agente_usuario varchar(500)
+  resultado resultado_envio [not null]
+  reporte_id bigint [ref: > reporte.id, note: 'Nulo si el envío fue rechazado']
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (origen_ip, creado_en)
+    (ciudadano_id, creado_en)
+  }
+
+  Note: 'Registro técnico antiabuso (RNF-022). No visible para el personal; se borra al vencer el plazo de conservación.'
+}
+
+Table informe_generado {
+  id bigint [pk, increment]
+  usuario_id bigint [not null, ref: > usuario.id]
+  organizacion_id bigint [not null, ref: > organizacion.id]
+  area_id bigint [ref: > area.id, note: 'Nulo si es el informe de toda la organización']
+  periodo_inicio date [not null]
+  periodo_fin date [not null]
+  filtros jsonb
+  formato formato_informe [not null]
+  creado_en timestamptz [not null, default: `now()`]
+
+  Note: 'Registra quién generó cada informe y cuándo (RF-026). Los informes no incluyen datos personales de ciudadanos.'
+}
+
+// ---------------------------------------------------------------------
+// Grupos visuales en dbdiagram
+// ---------------------------------------------------------------------
+
+TableGroup cuentas_ciudadanas {
+  ciudadano
+  suscripcion_aviso
+  senalamiento_cuenta
+}
+
+TableGroup configuracion_institucional {
+  organizacion
+  tiempo_objetivo
+  area
+  usuario
+  categoria
+  zona_cobertura
+  zona_organizacion
+  regla_canalizacion
+  canal_externo
+}
+
+TableGroup plantilla_municipal {
+  plantilla_area
+  plantilla_correspondencia
+}
+
+TableGroup reportes {
+  reporte
+  evidencia
+  historial_reporte
+}
+
+TableGroup seguridad_y_auditoria {
+  intento_acceso
+  registro_envio
+  informe_generado
+}

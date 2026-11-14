@@ -1,0 +1,54 @@
+@startuml Estados_TAAN
+title T'AAN - Diagrama de estados del reporte\n(Anexo G del documento maestro)
+skinparam shadowing false
+skinparam state {
+  BackgroundColor #FFFFFF
+  BackgroundColor<<transitorio>> #EAF2F8
+  BackgroundColor<<final>> #FDEDEC
+  BorderColor #34495E
+}
+
+state "Pendiente de canalización" as PC <<transitorio>>
+state "Recibido" as REC
+state "Validado" as VAL
+state "Asignado" as ASG
+state "En atención" as ATN
+state "Resuelto" as RES
+state "Reabierto" as REA
+state "Rechazado" as RCH <<final>>
+state "Duplicado" as DUP <<final>>
+state "Canalización externa" as EXT <<final>>
+
+PC : El ciudadano lo ve como «En revisión»
+PC : IA y reglas en ejecución (asíncrono)
+RES : Final salvo una reapertura única (RF-042)
+DUP : El ciudadano sigue el avance del reporte principal
+RCH : El ciudadano ve el motivo público y el contacto del área
+
+[*] --> PC : Sistema (CU-01)\n[Reporte almacenado]
+PC --> REC : Sistema (reglas)\n[Regla aplicable o receptora\npor defecto Integrada]
+PC --> EXT : Sistema (reglas)\n[La organización determinada\nes Externa]
+REC --> ASG : Personal del área o coordinación (CU-06)\n[Validación con área\ndeterminada por regla]
+REC --> VAL : Coordinación (CU-06)\n[Validación sin área\ndeterminada]
+REC --> RCH : Personal institucional (CU-06)\n[Motivo público y\njustificación]
+REC --> DUP : Personal institucional (CU-06)\n[Reporte principal y\nobservaciones]
+REC --> REC : Personal institucional (CU-21)\n[Redirección justificada a otra\norganización con cobertura]
+REC --> EXT : Personal institucional (CU-21)\n[Redirección a una\norganización externa]
+VAL --> ASG : Coordinación (CU-07)\n[Área activa de la\nmisma organización]
+ASG --> ASG : Personal del área o coordinación (CU-07)\n[Reasignación justificada\na otra área]
+ASG --> ATN : Personal institucional (CU-08)
+ATN --> RES : Personal institucional (CU-17)\n[Observación de cierre\nregistrada]
+RES --> REA : Ciudadano (CU-23)\n[Dentro del plazo y una\nsola vez por reporte]
+REA --> ATN : Personal del área (CU-08)\n[Conserva la marca\nde reabierto]
+RES --> [*] : [Plazo de reapertura vencido\no reporte ya reabierto]
+RCH --> [*]
+DUP --> [*]
+EXT --> [*]
+
+legend right
+  |<#EAF2F8>| Estado transitorio |
+  |<#FDEDEC>| Estado final |
+  Resuelto es final cuando vence el plazo
+  de reapertura o el reporte ya se reabrió.
+endlegend
+@enduml

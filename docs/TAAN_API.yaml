@@ -1,0 +1,4203 @@
+openapi: 3.0.3
+info:
+  title: T'AAN - API REST
+  version: 1.0.0
+  description: 'Contrato de la API de T''AAN, plataforma inteligente de reportes y gestión ciudadana. Lo usan la
+    web (Angular) y la app móvil (Ionic) por igual.
+
+
+    **Convenciones**
+
+
+    - Todas las rutas cuelgan de `/api/v1`. Los nombres de campos están en camelCase.
+
+    - Autenticación con JWT: `Authorization: Bearer <accessToken>`. Las operaciones públicas lo indican.
+
+    - `x-roles`: quién puede invocar la operación. `x-casos-uso` y `x-requisitos`: trazabilidad con el documento
+    maestro.
+
+    - `x-alcance`: MVP o Posterior (iteración posterior al MVP).
+
+    - Las transiciones de estado son operaciones explícitas (validacion, rechazo, asignacion, etc.) y solo se aceptan
+    si existen en el diagrama de estados (Estados_TAAN); de lo contrario responden 409 TRANSICION_INVALIDA.
+
+    - Los errores siguen el esquema `Error`; el campo `codigo` es estable para que el frontend decida qué mostrar.
+
+    - Paginación con `pagina` (desde 0) y `tamano` (máximo 100).'
+servers:
+- url: http://localhost:8080/api/v1
+  description: Desarrollo local
+- url: https://{dominio}/api/v1
+  description: Despliegue (Oracle Cloud)
+  variables:
+    dominio:
+      default: taan.example.mx
+tags:
+- name: Autenticación
+  description: Registro e inicio de sesión de ciudadanos (Google o correo) y del personal institucional.
+- name: Cuenta ciudadana
+  description: Perfil, teléfono, avisos, dispositivos y eliminación de cuenta.
+- name: Reportes ciudadanos
+  description: Registrar reportes y darles seguimiento desde «Mis reportes».
+- name: Archivos
+  description: Descarga controlada de fotografías y evidencias.
+- name: Atención institucional
+  description: Bandeja, transiciones de estado, redirección y señalamientos.
+- name: Estadísticas e informes
+  description: Indicadores y exportación sin datos personales.
+- name: Configuración institucional
+  description: Lo que configura la coordinación de cada organización.
+- name: Administración técnica
+  description: Lo que configura el administrador de T'AAN.
+security:
+- bearerAuth: []
+paths:
+  /auth/ciudadanos/registro:
+    post:
+      tags:
+      - Autenticación
+      operationId: registrarCiudadanoCorreo
+      summary: Crear cuenta ciudadana con correo
+      description: Envía un enlace de verificación; la cuenta no puede reportar hasta confirmarlo.
+      x-casos-uso:
+      - CU-24
+      x-requisitos:
+      - RF-001
+      - RNF-022
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroCorreo'
+      responses:
+        '202':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/ciudadanos/verificacion:
+    post:
+      tags:
+      - Autenticación
+      operationId: verificarCorreo
+      summary: Confirmar el enlace de verificación
+      description: NoProcesable con codigo ENLACE_VENCIDO si el enlace expiró (EX-02).
+      x-casos-uso:
+      - CU-24
+      x-requisitos:
+      - RF-001
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerificacion'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /auth/ciudadanos/verificacion/reenvio:
+    post:
+      tags:
+      - Autenticación
+      operationId: reenviarVerificacion
+      summary: Reenviar el enlace de verificación
+      description: Responde igual exista o no la cuenta, para no revelar correos registrados.
+      x-casos-uso:
+      - CU-24
+      x-requisitos:
+      - RF-001
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudCorreo'
+      responses:
+        '202':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/ciudadanos/google:
+    post:
+      tags:
+      - Autenticación
+      operationId: accederConGoogle
+      summary: Continuar con Google (registro o inicio de sesión)
+      description: Si el correo no tiene cuenta, la crea (requiere captchaToken y aceptaAvisoPrivacidad). requiereTelefono
+        = true indica que debe completar el teléfono antes de reportar (CU-04 FA-03).
+      x-casos-uso:
+      - CU-24
+      - CU-04
+      x-requisitos:
+      - RF-001
+      - RF-002
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginGoogle'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/ciudadanos/sesion:
+    post:
+      tags:
+      - Autenticación
+      operationId: iniciarSesionCiudadano
+      summary: Iniciar sesión ciudadana con correo
+      description: Credenciales incorrectas responden 400 con un mensaje que no revela si el correo existe.
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      - RNF-009
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginCorreo'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/ciudadanos/recuperacion:
+    post:
+      tags:
+      - Autenticación
+      operationId: solicitarRecuperacion
+      summary: Solicitar restablecimiento de contraseña
+      description: Solo cuentas de correo. Responde igual exista o no la cuenta.
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudCorreo'
+      responses:
+        '202':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/ciudadanos/recuperacion/confirmacion:
+    post:
+      tags:
+      - Autenticación
+      operationId: restablecerPassword
+      summary: Restablecer contraseña con el enlace
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Restablecimiento'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /auth/institucional/sesion:
+    post:
+      tags:
+      - Autenticación
+      operationId: iniciarSesionInstitucional
+      summary: Iniciar sesión institucional
+      description: requiereCambioPassword = true obliga a cambiar la credencial temporal.
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      - RF-003
+      - RNF-009
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginCorreo'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '429':
+          $ref: '#/components/responses/Limite'
+  /auth/institucional/password:
+    put:
+      tags:
+      - Autenticación
+      operationId: cambiarPasswordInstitucional
+      summary: Cambiar contraseña institucional
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      x-roles:
+      - personal_area
+      - coordinacion
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioPassword'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /auth/refresco:
+    post:
+      tags:
+      - Autenticación
+      operationId: refrescarSesion
+      summary: Renovar el token de acceso
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-002
+      x-roles:
+      - publico
+      x-alcance: MVP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefrescoSesion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /auth/cierre:
+    post:
+      tags:
+      - Autenticación
+      operationId: cerrarSesion
+      summary: Cerrar sesión
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-031
+      - RF-034
+      x-roles:
+      - ciudadano
+      - personal_area
+      - coordinacion
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CierreSesion'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/perfil:
+    get:
+      tags:
+      - Cuenta ciudadana
+      operationId: obtenerPerfil
+      summary: Consultar el perfil
+      x-casos-uso:
+      - CU-25
+      x-requisitos:
+      - RF-012
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    patch:
+      tags:
+      - Cuenta ciudadana
+      operationId: actualizarPerfil
+      summary: Corregir nombre, teléfono o avisos por correo
+      x-casos-uso:
+      - CU-25
+      x-requisitos:
+      - RF-012
+      - RF-038
+      - RF-044
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/password:
+    put:
+      tags:
+      - Cuenta ciudadana
+      operationId: cambiarPasswordCiudadano
+      summary: Cambiar contraseña
+      description: Solo cuentas de correo; las de Google responden NoProcesable (CU-25 FA-01).
+      x-casos-uso:
+      - CU-25
+      x-requisitos:
+      - RF-012
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioPassword'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /ciudadano/cuenta/eliminacion:
+    post:
+      tags:
+      - Cuenta ciudadana
+      operationId: eliminarCuenta
+      summary: Eliminar la cuenta
+      description: Borra perfil, teléfono y suscripciones; los reportes se conservan desvinculados (CU-25 FA-02).
+      x-casos-uso:
+      - CU-25
+      x-requisitos:
+      - RF-012
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EliminacionCuenta'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/dispositivos:
+    post:
+      tags:
+      - Cuenta ciudadana
+      operationId: registrarDispositivo
+      summary: Registrar el dispositivo para avisos push
+      x-casos-uso:
+      - CU-04
+      x-requisitos:
+      - RF-034
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dispositivo'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/dispositivos/baja:
+    post:
+      tags:
+      - Cuenta ciudadana
+      operationId: eliminarDispositivo
+      summary: Dejar de recibir avisos en un dispositivo
+      x-casos-uso:
+      - CU-25
+      x-requisitos:
+      - RF-034
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dispositivo'
+      responses:
+        '204':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /cobertura:
+    get:
+      tags:
+      - Reportes ciudadanos
+      operationId: verificarCobertura
+      summary: Verificar si una ubicación está en cobertura
+      description: Se consulta antes de enviar, para avisar al ciudadano que la zona aún no tiene cobertura (EX-05).
+      x-casos-uso:
+      - CU-01
+      x-requisitos:
+      - RF-014
+      - RF-029
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      parameters:
+      - name: latitud
+        in: query
+        required: true
+        schema:
+          type: number
+          format: double
+      - name: longitud
+        in: query
+        required: true
+        schema:
+          type: number
+          format: double
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cobertura'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/reportes:
+    post:
+      tags:
+      - Reportes ciudadanos
+      operationId: crearReporte
+      summary: Registrar un reporte
+      description: 'Responde de inmediato con el folio; la interpretación con IA (RF-007, RF-008) y la canalización
+        por reglas (RF-015) se ejecutan después de forma asíncrona (RNF-011), sin operación propia. NoProcesable:
+        FUERA_DE_COBERTURA o TELEFONO_REQUERIDO. Prohibido: CUENTA_SUSPENDIDA.'
+      x-casos-uso:
+      - CU-01
+      x-requisitos:
+      - RF-004
+      - RF-005
+      - RF-006
+      - RF-011
+      - RF-038
+      - RNF-022
+      - RF-007
+      - RF-008
+      - RF-015
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                datos:
+                  $ref: '#/components/schemas/DatosNuevoReporte'
+                fotos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 3
+                  description: Opcionales; se les quitan los metadatos GPS (RNF-017).
+              required:
+              - datos
+            encoding:
+              datos:
+                contentType: application/json
+              fotos:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteCreado'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+        '429':
+          $ref: '#/components/responses/Limite'
+    get:
+      tags:
+      - Reportes ciudadanos
+      operationId: listarMisReportes
+      summary: Mis reportes
+      x-casos-uso:
+      - CU-02
+      x-requisitos:
+      - RF-013
+      - RF-040
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaReporteResumenCiudadano'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /ciudadano/reportes/{folio}:
+    get:
+      tags:
+      - Reportes ciudadanos
+      operationId: obtenerMiReporte
+      summary: Detalle de un reporte propio
+      description: Incluye el seguimiento del reporte principal si es duplicado, el motivo y el contacto del área
+        si fue rechazado, y los canales oficiales si la canalización es externa.
+      x-casos-uso:
+      - CU-02
+      - CU-03
+      x-requisitos:
+      - RF-013
+      - RF-016
+      - RF-035
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleCiudadano'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /ciudadano/reportes/{folio}/reapertura:
+    post:
+      tags:
+      - Reportes ciudadanos
+      operationId: reabrirReporte
+      summary: Reabrir un reporte resuelto
+      description: 'Transición Resuelto → Reabierto. Conflicto: YA_REABIERTO o TRANSICION_INVALIDA. NoProcesable:
+        PLAZO_VENCIDO.'
+      x-casos-uso:
+      - CU-23
+      x-requisitos:
+      - RF-042
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reapertura'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleCiudadano'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /ciudadano/reportes/{folio}/confirmacion:
+    post:
+      tags:
+      - Reportes ciudadanos
+      operationId: confirmarResolucion
+      summary: Confirmar que el problema se resolvió
+      description: Registra la confirmación (CU-23 FA-01); el reporte permanece Resuelto.
+      x-casos-uso:
+      - CU-23
+      x-requisitos:
+      - RF-042
+      x-roles:
+      - ciudadano
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '204':
+          description: Operación realizada.
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /archivos/{id}:
+    get:
+      tags:
+      - Archivos
+      operationId: descargarArchivo
+      summary: Descargar una fotografía o evidencia
+      description: El ciudadano solo accede a las de sus reportes; el personal, a las de su organización.
+      x-casos-uso:
+      - CU-02
+      - CU-05
+      x-requisitos:
+      - RNF-017
+      x-roles:
+      - ciudadano
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /institucional/reportes:
+    get:
+      tags:
+      - Atención institucional
+      operationId: buscarReportes
+      summary: Bandeja y búsqueda de reportes
+      description: El personal de área ve solo su área; la coordinación, toda su organización.
+      x-casos-uso:
+      - CU-05
+      x-requisitos:
+      - RF-018
+      - RF-024
+      - RF-041
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - name: estado
+        in: query
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstadoReporte'
+        style: form
+        explode: true
+      - name: areaId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: categoriaId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: semaforo
+        in: query
+        schema:
+          $ref: '#/components/schemas/Semaforo'
+        description: rojo = reportes atrasados (filtro de la coordinación).
+      - name: desde
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: hasta
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: texto
+        in: query
+        schema:
+          type: string
+          maxLength: 100
+        description: Busca en folio y descripción.
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaReporteResumenInstitucional'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /institucional/reportes/{folio}:
+    get:
+      tags:
+      - Atención institucional
+      operationId: obtenerReporteInstitucional
+      summary: Detalle de un reporte
+      x-casos-uso:
+      - CU-05
+      x-requisitos:
+      - RF-018
+      - RF-038
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /institucional/reportes/{folio}/historial:
+    get:
+      tags:
+      - Atención institucional
+      operationId: obtenerHistorial
+      summary: Historial completo
+      x-casos-uso:
+      - CU-09
+      x-requisitos:
+      - RF-017
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventoHistorial'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /institucional/reportes/{folio}/validacion:
+    post:
+      tags:
+      - Atención institucional
+      operationId: validarReporte
+      summary: Validar un reporte
+      description: Recibido → Asignado si una regla determinó el área; Recibido → Validado si no (solo coordinación).
+      x-casos-uso:
+      - CU-06
+      x-requisitos:
+      - RF-019
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Validacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/reportes/{folio}/rechazo:
+    post:
+      tags:
+      - Atención institucional
+      operationId: rechazarReporte
+      summary: Rechazar un reporte
+      description: Recibido → Rechazado.
+      x-casos-uso:
+      - CU-06
+      x-requisitos:
+      - RF-019
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rechazo'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/reportes/{folio}/duplicado:
+    post:
+      tags:
+      - Atención institucional
+      operationId: marcarDuplicado
+      summary: Marcar como duplicado
+      description: Recibido → Duplicado. NoProcesable si el principal no es de la misma organización o es el mismo
+        reporte.
+      x-casos-uso:
+      - CU-06
+      x-requisitos:
+      - RF-019
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarcaDuplicado'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /institucional/reportes/{folio}/asignacion:
+    post:
+      tags:
+      - Atención institucional
+      operationId: asignarReporte
+      summary: Asignar o reasignar a un área
+      description: Validado → Asignado (coordinación) o reasignación Asignado → Asignado con justificación.
+      x-casos-uso:
+      - CU-07
+      x-requisitos:
+      - RF-020
+      - RF-033
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Asignacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /institucional/reportes/{folio}/inicio-atencion:
+    post:
+      tags:
+      - Atención institucional
+      operationId: iniciarAtencion
+      summary: Pasar a En atención
+      description: Asignado → En atención, o Reabierto → En atención.
+      x-casos-uso:
+      - CU-08
+      x-requisitos:
+      - RF-021
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/reportes/{folio}/resolucion:
+    post:
+      tags:
+      - Atención institucional
+      operationId: resolverReporte
+      summary: Registrar la resolución
+      description: En atención → Resuelto.
+      x-casos-uso:
+      - CU-17
+      x-requisitos:
+      - RF-022
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Resolucion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/reportes/{folio}/organizaciones-redireccion:
+    get:
+      tags:
+      - Atención institucional
+      operationId: listarDestinosRedireccion
+      summary: Organizaciones a las que se puede redirigir
+      description: Organizaciones activas con cobertura en la ubicación del reporte.
+      x-casos-uso:
+      - CU-21
+      x-requisitos:
+      - RF-037
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizacionResumen'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /institucional/reportes/{folio}/redireccion:
+    post:
+      tags:
+      - Atención institucional
+      operationId: redirigirReporte
+      summary: Redirigir a otra organización
+      description: Recibido → Recibido en la organización destino, o → Canalización externa si es externa.
+      x-casos-uso:
+      - CU-21
+      x-requisitos:
+      - RF-037
+      - RF-019
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Redireccion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteDetalleInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /institucional/reportes/{folio}/senalamientos:
+    post:
+      tags:
+      - Atención institucional
+      operationId: senalarCuenta
+      summary: Señalar posible abuso de la cuenta
+      description: No cambia el estado del reporte; queda pendiente de revisión del administrador.
+      x-casos-uso:
+      - CU-26
+      x-requisitos:
+      - RF-043
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudSenalamiento'
+      responses:
+        '201':
+          description: Operación realizada.
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/reportes/{folio}/evidencias:
+    post:
+      tags:
+      - Atención institucional
+      operationId: adjuntarEvidencia
+      summary: Adjuntar evidencia de atención
+      x-casos-uso:
+      - CU-18
+      x-requisitos:
+      - RF-023
+      - RNF-017
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: Posterior
+      parameters:
+      - $ref: '#/components/parameters/Folio'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archivo:
+                  type: string
+                  format: binary
+              required:
+              - archivo
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchivoRef'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /institucional/mapa:
+    get:
+      tags:
+      - Atención institucional
+      operationId: obtenerMapaReportes
+      summary: Reportes en mapa
+      x-casos-uso:
+      - CU-19
+      x-requisitos:
+      - RF-025
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: Posterior
+      parameters:
+      - name: estado
+        in: query
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstadoReporte'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/geo+json:
+              schema:
+                $ref: '#/components/schemas/ReporteMapa'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /institucional/categorias:
+    get:
+      tags:
+      - Atención institucional
+      operationId: listarCategoriasInstitucional
+      summary: Catálogo para confirmar o corregir la categoría
+      x-casos-uso:
+      - CU-06
+      x-requisitos:
+      - RF-028
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /institucional/areas:
+    get:
+      tags:
+      - Atención institucional
+      operationId: listarAreasInstitucional
+      summary: Áreas activas de la organización
+      x-casos-uso:
+      - CU-07
+      x-requisitos:
+      - RF-033
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /institucional/estadisticas:
+    get:
+      tags:
+      - Estadísticas e informes
+      operationId: obtenerEstadisticas
+      summary: Indicadores del periodo
+      description: El personal de área solo obtiene los de su área.
+      x-casos-uso:
+      - CU-10
+      x-requisitos:
+      - RF-026
+      - RF-041
+      - RF-042
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - name: desde
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: hasta
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: areaId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Estadisticas'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /institucional/informes:
+    post:
+      tags:
+      - Estadísticas e informes
+      operationId: generarInforme
+      summary: Generar y descargar un informe
+      description: Registra quién lo generó y cuándo. No incluye datos personales de ciudadanos.
+      x-casos-uso:
+      - CU-10
+      x-requisitos:
+      - RF-026
+      x-roles:
+      - personal_area
+      - coordinacion
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudInforme'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /organizacion/areas:
+    get:
+      tags:
+      - Configuración institucional
+      operationId: listarAreas
+      summary: Áreas de la organización
+      x-casos-uso:
+      - CU-13
+      x-requisitos:
+      - RF-033
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Configuración institucional
+      operationId: crearArea
+      summary: Crear un área
+      x-casos-uso:
+      - CU-13
+      x-requisitos:
+      - RF-033
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AreaNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /organizacion/areas/{id}:
+    patch:
+      tags:
+      - Configuración institucional
+      operationId: actualizarArea
+      summary: Editar o desactivar un área
+      x-casos-uso:
+      - CU-13
+      x-requisitos:
+      - RF-033
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AreaActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /organizacion/usuarios:
+    get:
+      tags:
+      - Configuración institucional
+      operationId: listarUsuarios
+      summary: Personal de la organización
+      x-casos-uso:
+      - CU-12
+      x-requisitos:
+      - RF-032
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioInstitucional'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Configuración institucional
+      operationId: crearUsuario
+      summary: Crear una cuenta de personal
+      x-casos-uso:
+      - CU-12
+      x-requisitos:
+      - RF-032
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioNuevo'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredencialTemporal'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /organizacion/usuarios/{id}:
+    patch:
+      tags:
+      - Configuración institucional
+      operationId: actualizarUsuario
+      summary: Editar, cambiar de área o desactivar
+      x-casos-uso:
+      - CU-12
+      x-requisitos:
+      - RF-032
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioInstitucional'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /organizacion/usuarios/{id}/credencial-temporal:
+    post:
+      tags:
+      - Configuración institucional
+      operationId: restablecerCredencialUsuario
+      summary: Restablecer la credencial de un miembro del personal
+      description: Recuperación de contraseña del personal de área (CU-04 FA-01).
+      x-casos-uso:
+      - CU-12
+      x-requisitos:
+      - RF-032
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredencialTemporal'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /organizacion/semaforo:
+    get:
+      tags:
+      - Configuración institucional
+      operationId: obtenerSemaforo
+      summary: Tiempos objetivo del semáforo
+      x-casos-uso:
+      - CU-05
+      x-requisitos:
+      - RF-041
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TiempoObjetivo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    put:
+      tags:
+      - Configuración institucional
+      operationId: configurarSemaforo
+      summary: Configurar los tiempos objetivo
+      x-casos-uso:
+      - CU-05
+      x-requisitos:
+      - RF-041
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TiempoObjetivo'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TiempoObjetivo'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /organizacion/correspondencia:
+    get:
+      tags:
+      - Configuración institucional
+      operationId: obtenerCorrespondencia
+      summary: Correspondencia categoría → área vigente
+      x-casos-uso:
+      - CU-22
+      x-requisitos:
+      - RF-039
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Correspondencia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    put:
+      tags:
+      - Configuración institucional
+      operationId: confirmarCorrespondencia
+      summary: Confirmar la correspondencia
+      description: Activa las reglas con área destino; ninguna propuesta se activa sin esta confirmación (CU-22
+        EX-03).
+      x-casos-uso:
+      - CU-22
+      x-requisitos:
+      - RF-039
+      - RF-030
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmacionCorrespondencia'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Correspondencia'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /organizacion/correspondencia/propuesta:
+    post:
+      tags:
+      - Configuración institucional
+      operationId: proponerCorrespondencia
+      summary: Pedir a la IA una propuesta categoría → área
+      description: Usa las funciones capturadas de cada área. Si la IA falla, se conserva la plantilla (CU-22 EX-01).
+      x-casos-uso:
+      - CU-22
+      x-requisitos:
+      - RF-039
+      x-roles:
+      - coordinacion
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Correspondencia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/organizaciones:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarOrganizaciones
+      summary: Organizaciones
+      x-casos-uso:
+      - CU-11
+      x-requisitos:
+      - RF-027
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organizacion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearOrganizacion
+      summary: Registrar una organización
+      x-casos-uso:
+      - CU-11
+      x-requisitos:
+      - RF-027
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizacionNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/organizaciones/{id}:
+    patch:
+      tags:
+      - Administración técnica
+      operationId: actualizarOrganizacion
+      summary: Editar o desactivar una organización
+      x-casos-uso:
+      - CU-11
+      x-requisitos:
+      - RF-027
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizacionActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /admin/organizaciones/{id}/coordinacion:
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearCuentaCoordinacion
+      summary: Crear la cuenta inicial de coordinación
+      x-casos-uso:
+      - CU-12
+      x-requisitos:
+      - RF-032
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaCoordinacionNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredencialTemporal'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/organizaciones/{id}/plantilla:
+    post:
+      tags:
+      - Administración técnica
+      operationId: aplicarPlantilla
+      summary: Cargar la plantilla municipal
+      description: Crea las áreas estándar y su correspondencia en la organización (CU-22, paso 1).
+      x-casos-uso:
+      - CU-22
+      x-requisitos:
+      - RF-039
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/plantilla:
+    get:
+      tags:
+      - Administración técnica
+      operationId: obtenerPlantilla
+      summary: Consultar la plantilla municipal
+      x-casos-uso:
+      - CU-22
+      x-requisitos:
+      - RF-039
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlantillaArea'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /admin/categorias:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarCategorias
+      summary: Categorías y subcategorías
+      x-casos-uso:
+      - CU-14
+      x-requisitos:
+      - RF-028
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearCategoria
+      summary: Crear categoría o subcategoría
+      x-casos-uso:
+      - CU-14
+      x-requisitos:
+      - RF-028
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/categorias/{id}:
+    patch:
+      tags:
+      - Administración técnica
+      operationId: actualizarCategoria
+      summary: Editar o desactivar
+      x-casos-uso:
+      - CU-14
+      x-requisitos:
+      - RF-028
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/zonas:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarZonas
+      summary: Zonas de cobertura
+      x-casos-uso:
+      - CU-15
+      x-requisitos:
+      - RF-029
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zona'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearZona
+      summary: Registrar una zona (GeoJSON)
+      description: 'NoProcesable: geometría inválida (CU-15 EX).'
+      x-casos-uso:
+      - CU-15
+      x-requisitos:
+      - RF-029
+      - RF-037
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZonaNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zona'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/zonas/{id}:
+    patch:
+      tags:
+      - Administración técnica
+      operationId: actualizarZona
+      summary: Editar, redibujar o desactivar una zona
+      x-casos-uso:
+      - CU-15
+      x-requisitos:
+      - RF-029
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZonaActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zona'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/zonas/{id}/organizaciones:
+    put:
+      tags:
+      - Administración técnica
+      operationId: definirCoberturaZona
+      summary: Definir las organizaciones con cobertura
+      x-casos-uso:
+      - CU-15
+      x-requisitos:
+      - RF-029
+      - RF-037
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoberturaZona'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zona'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /admin/reglas:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarReglas
+      summary: Reglas de canalización
+      x-casos-uso:
+      - CU-16
+      x-requisitos:
+      - RF-030
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - name: zonaId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Regla'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearRegla
+      summary: Crear una regla
+      x-casos-uso:
+      - CU-16
+      x-requisitos:
+      - RF-030
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReglaNueva'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Regla'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/reglas/{id}:
+    patch:
+      tags:
+      - Administración técnica
+      operationId: actualizarRegla
+      summary: Editar, cerrar vigencia o desactivar
+      x-casos-uso:
+      - CU-16
+      x-requisitos:
+      - RF-030
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReglaActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Regla'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/canales-externos:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarCanalesExternos
+      summary: Canales oficiales externos
+      x-casos-uso:
+      - CU-20
+      x-requisitos:
+      - RF-036
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CanalExterno'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+    post:
+      tags:
+      - Administración técnica
+      operationId: crearCanalExterno
+      summary: Registrar un canal oficial
+      x-casos-uso:
+      - CU-20
+      x-requisitos:
+      - RF-036
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanalExternoNuevo'
+      responses:
+        '201':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanalExterno'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '422':
+          $ref: '#/components/responses/NoProcesable'
+  /admin/canales-externos/{id}:
+    patch:
+      tags:
+      - Administración técnica
+      operationId: actualizarCanalExterno
+      summary: Editar o desactivar un canal
+      x-casos-uso:
+      - CU-20
+      x-requisitos:
+      - RF-036
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanalExternoActualizacion'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanalExterno'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+  /admin/senalamientos:
+    get:
+      tags:
+      - Administración técnica
+      operationId: listarSenalamientos
+      summary: Señalamientos de cuentas
+      x-casos-uso:
+      - CU-26
+      x-requisitos:
+      - RF-043
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - name: estado
+        in: query
+        schema:
+          type: string
+          enum:
+          - pendiente
+          - aceptado
+          - desestimado
+          default: pendiente
+      - $ref: '#/components/parameters/Pagina'
+      - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaSenalamiento'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+  /admin/senalamientos/{id}/resolucion:
+    post:
+      tags:
+      - Administración técnica
+      operationId: resolverSenalamiento
+      summary: Desestimar o suspender la cuenta
+      description: Al suspender se avisa al ciudadano y se registra la decisión; los reportes no se modifican.
+      x-casos-uso:
+      - CU-26
+      x-requisitos:
+      - RF-043
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolucionSenalamiento'
+      responses:
+        '200':
+          description: Operación realizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Senalamiento'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Folio:
+      name: folio
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Folio'
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    Pagina:
+      name: pagina
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Tamano:
+      name: tamano
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    Invalido:
+      description: Datos inválidos (codigo VALIDACION, con detalles por campo).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoAutenticado:
+      description: Falta la sesión o expiró.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Prohibido:
+      description: El rol o la organización no permiten la operación, o la cuenta está suspendida (codigo CUENTA_SUSPENDIDA).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: No existe o no pertenece al ámbito del usuario (no se revela cuál de los dos).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflicto:
+      description: 'Conflicto con el estado actual. Ej.: TRANSICION_INVALIDA, YA_REABIERTO, CORREO_REGISTRADO.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoProcesable:
+      description: 'Regla de negocio no cumplida. Ej.: FUERA_DE_COBERTURA, TELEFONO_REQUERIDO, PLAZO_VENCIDO.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Limite:
+      description: Límite preventivo excedido (codigo LIMITE_EXCEDIDO; RNF-009, RNF-022). Se informa como medida
+        temporal.
+      headers:
+        Retry-After:
+          description: Segundos para reintentar.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: 'Código estable para que el frontend decida qué mostrar. Ej.: TRANSICION_INVALIDA, FUERA_DE_COBERTURA,
+            CUENTA_SUSPENDIDA.'
+        mensaje:
+          type: string
+          description: Mensaje legible, redactado como medida preventiva cuando aplica (RNF-022).
+        detalles:
+          type: array
+          items:
+            type: object
+            properties:
+              campo:
+                type: string
+              problema:
+                type: string
+          description: Errores por campo en validaciones (400).
+      required:
+      - codigo
+      - mensaje
+    EstadoReporte:
+      type: string
+      enum:
+      - pendiente_canalizacion
+      - recibido
+      - validado
+      - asignado
+      - en_atencion
+      - resuelto
+      - reabierto
+      - rechazado
+      - duplicado
+      - canalizacion_externa
+      description: Estados del Anexo G. Las transiciones válidas son las del diagrama Estados_TAAN.
+    Rol:
+      type: string
+      enum:
+      - ciudadano
+      - personal_area
+      - coordinacion
+      - administrador
+    MotivoCanalizacion:
+      type: string
+      enum:
+      - regla
+      - sin_regla
+      - empate_reglas
+      - sin_clasificacion
+      - redireccion
+    MotivoRechazo:
+      type: string
+      enum:
+      - no_corresponde
+      - informacion_insuficiente
+      - ya_atendido
+      - no_servicio_publico
+    NivelParticipacion:
+      type: string
+      enum:
+      - integrada
+      - conectada
+      - externa
+      description: «conectada» corresponde a una iteración posterior al MVP.
+    Semaforo:
+      type: string
+      enum:
+      - verde
+      - amarillo
+      - rojo
+      - sin_tiempo
+      description: 'Calculado con los tiempos objetivo de la organización (RF-041). sin_tiempo: el estado no tiene
+        tiempo configurado.'
+    TipoCanal:
+      type: string
+      enum:
+      - telefono
+      - sitio_web
+      - correo
+      - otro
+    Telefono:
+      type: string
+      pattern: ^[0-9]{10}$
+      example: '2721234567'
+      description: 10 dígitos, sin espacios ni guiones (RF-038).
+    Folio:
+      type: string
+      pattern: ^[A-Z0-9-]{6,20}$
+      example: IXT-2026-000123
+    Ubicacion:
+      type: object
+      properties:
+        latitud:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitud:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+      required:
+      - latitud
+      - longitud
+    GeoJsonPoligono:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - Polygon
+          - MultiPolygon
+        coordinates:
+          type: array
+          items: {}
+          description: Coordenadas GeoJSON en WGS84 (EPSG:4326), longitud primero.
+      required:
+      - type
+      - coordinates
+      description: Geometría GeoJSON; se guarda en PostGIS como MultiPolygon.
+    Sesion:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 'JWT de corta duración; se envía como «Authorization: Bearer».'
+        refreshToken:
+          type: string
+        expiraEn:
+          type: integer
+          description: Segundos de vigencia del accessToken.
+        rol:
+          $ref: '#/components/schemas/Rol'
+        requiereTelefono:
+          type: boolean
+          description: 'Solo ciudadanos: true si falta el teléfono en el perfil (primer ingreso con Google).'
+        requiereCambioPassword:
+          type: boolean
+          description: 'Solo institucionales: true si la credencial es temporal.'
+      required:
+      - accessToken
+      - refreshToken
+      - expiraEn
+      - rol
+    RegistroCorreo:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        correo:
+          type: string
+          format: email
+          maxLength: 150
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: 72 es el máximo que admite BCrypt.
+        aceptaAvisoPrivacidad:
+          type: boolean
+          enum:
+          - true
+        captchaToken:
+          type: string
+          description: Token del CAPTCHA de baja fricción (RNF-022).
+        campoAuxiliar:
+          type: string
+          maxLength: 0
+          description: 'Campo trampa (honeypot): debe llegar vacío.'
+      required:
+      - nombre
+      - correo
+      - password
+      - aceptaAvisoPrivacidad
+      - captchaToken
+    LoginGoogle:
+      type: object
+      properties:
+        idToken:
+          type: string
+          description: ID token emitido por Google Sign-In (OpenID Connect); el backend verifica firma y audiencia.
+        captchaToken:
+          type: string
+          description: Obligatorio solo si el correo aún no tiene cuenta (se crea en este paso, CU-24).
+        aceptaAvisoPrivacidad:
+          type: boolean
+          description: Obligatorio solo al crear la cuenta.
+      required:
+      - idToken
+    LoginCorreo:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+      - correo
+      - password
+    TokenVerificacion:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
+    SolicitudCorreo:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+      required:
+      - correo
+    Restablecimiento:
+      type: object
+      properties:
+        token:
+          type: string
+        nuevaPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+      required:
+      - token
+      - nuevaPassword
+    CambioPassword:
+      type: object
+      properties:
+        passwordActual:
+          type: string
+          format: password
+        nuevaPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+      required:
+      - passwordActual
+      - nuevaPassword
+    RefrescoSesion:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+      - refreshToken
+    CierreSesion:
+      type: object
+      properties:
+        tokenDispositivo:
+          type: string
+          description: Si se envía, se elimina la suscripción de avisos de ese dispositivo (RF-034).
+    Perfil:
+      type: object
+      properties:
+        nombre:
+          type: string
+        correo:
+          type: string
+          format: email
+        metodoAcceso:
+          type: string
+          enum:
+          - google
+          - correo
+        telefono:
+          allOf:
+          - $ref: '#/components/schemas/Telefono'
+          nullable: true
+        avisosCorreo:
+          type: boolean
+        estado:
+          type: string
+          enum:
+          - activa
+          - suspendida
+        suspension:
+          type: object
+          properties:
+            motivo:
+              type: string
+            hasta:
+              type: string
+              format: date-time
+              nullable: true
+              description: null = suspensión indefinida.
+          nullable: true
+      required:
+      - nombre
+      - correo
+      - metodoAcceso
+      - avisosCorreo
+      - estado
+    PerfilActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        telefono:
+          $ref: '#/components/schemas/Telefono'
+        avisosCorreo:
+          type: boolean
+      description: Todos los campos son opcionales; solo se cambian los enviados.
+    EliminacionCuenta:
+      type: object
+      properties:
+        confirmacion:
+          type: string
+          enum:
+          - ELIMINAR
+          description: Confirmación explícita (RF-012).
+      required:
+      - confirmacion
+    Dispositivo:
+      type: object
+      properties:
+        tokenDispositivo:
+          type: string
+          maxLength: 500
+          description: Token de Firebase Cloud Messaging.
+      required:
+      - tokenDispositivo
+    Cobertura:
+      type: object
+      properties:
+        dentroDeCobertura:
+          type: boolean
+        zona:
+          type: string
+          nullable: true
+      required:
+      - dentroDeCobertura
+    DatosNuevoReporte:
+      type: object
+      properties:
+        descripcion:
+          type: string
+          minLength: 15
+          maxLength: 2000
+          description: Lenguaje natural; nunca se sobrescribe.
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
+        origen:
+          type: string
+          enum:
+          - web
+          - app
+        campoAuxiliar:
+          type: string
+          maxLength: 0
+          description: 'Campo trampa (honeypot): debe llegar vacío.'
+      required:
+      - descripcion
+      - ubicacion
+      - origen
+    ReporteCreado:
+      type: object
+      properties:
+        folio:
+          $ref: '#/components/schemas/Folio'
+        estado:
+          $ref: '#/components/schemas/EstadoReporte'
+        estadoTexto:
+          type: string
+          example: En revisión
+        creadoEn:
+          type: string
+          format: date-time
+      required:
+      - folio
+      - estado
+      - estadoTexto
+      - creadoEn
+    ArchivoRef:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          type: string
+          description: Ruta de GET /archivos/{id}.
+        tipoMime:
+          type: string
+      required:
+      - id
+      - url
+      - tipoMime
+    EventoPublico:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date-time
+        estado:
+          $ref: '#/components/schemas/EstadoReporte'
+        estadoTexto:
+          type: string
+        descripcion:
+          type: string
+      required:
+      - fecha
+      - estado
+      - estadoTexto
+    CanalExterno:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        organizacionId:
+          type: integer
+          format: int64
+        organizacion:
+          type: string
+        tipo:
+          $ref: '#/components/schemas/TipoCanal'
+        valor:
+          type: string
+        fuenteVerificacion:
+          type: string
+        activo:
+          type: boolean
+      required:
+      - id
+      - organizacionId
+      - tipo
+      - valor
+      - fuenteVerificacion
+      - activo
+    ReporteResumenCiudadano:
+      type: object
+      properties:
+        folio:
+          $ref: '#/components/schemas/Folio'
+        estado:
+          $ref: '#/components/schemas/EstadoReporte'
+        estadoTexto:
+          type: string
+          description: Pendiente de canalización se muestra como «En revisión».
+        categoria:
+          type: string
+          nullable: true
+        creadoEn:
+          type: string
+          format: date-time
+        actualizadoEn:
+          type: string
+          format: date-time
+      required:
+      - folio
+      - estado
+      - estadoTexto
+      - creadoEn
+      - actualizadoEn
+    ReporteDetalleCiudadano:
+      allOf:
+      - $ref: '#/components/schemas/ReporteResumenCiudadano'
+      - type: object
+        properties:
+          descripcion:
+            type: string
+          ubicacion:
+            $ref: '#/components/schemas/Ubicacion'
+          fotos:
+            type: array
+            items:
+              $ref: '#/components/schemas/ArchivoRef'
+          organizacion:
+            type: string
+            nullable: true
+          area:
+            type: string
+            nullable: true
+          historial:
+            type: array
+            items:
+              $ref: '#/components/schemas/EventoPublico'
+            description: Solo eventos visibles para el ciudadano.
+          rechazo:
+            type: object
+            properties:
+              motivo:
+                $ref: '#/components/schemas/MotivoRechazo'
+              texto:
+                type: string
+                nullable: true
+              contactoArea:
+                type: object
+                properties:
+                  telefono:
+                    type: string
+                    nullable: true
+                  correo:
+                    type: string
+                    nullable: true
+            description: Presente si estado = rechazado (RF-013).
+            nullable: true
+          reportePrincipal:
+            type: object
+            properties:
+              folio:
+                $ref: '#/components/schemas/Folio'
+              estado:
+                $ref: '#/components/schemas/EstadoReporte'
+              estadoTexto:
+                type: string
+              historial:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventoPublico'
+            description: 'Presente si estado = duplicado: el ciudadano sigue el avance del principal.'
+            nullable: true
+          canalesExternos:
+            type: array
+            items:
+              $ref: '#/components/schemas/CanalExterno'
+            description: Presente si estado = canalizacion_externa (CU-03).
+          reapertura:
+            type: object
+            properties:
+              permitida:
+                type: boolean
+              venceEn:
+                type: string
+                format: date-time
+                nullable: true
+            description: Presente si estado = resuelto (RF-042).
+            nullable: true
+    Reapertura:
+      type: object
+      properties:
+        motivo:
+          type: string
+          minLength: 10
+          maxLength: 1000
+          description: Por qué el problema persiste.
+      required:
+      - motivo
+    ReporteResumenInstitucional:
+      type: object
+      properties:
+        folio:
+          $ref: '#/components/schemas/Folio'
+        estado:
+          $ref: '#/components/schemas/EstadoReporte'
+        categoria:
+          type: string
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        creadoEn:
+          type: string
+          format: date-time
+        fechaUltimoEstado:
+          type: string
+          format: date-time
+        semaforo:
+          $ref: '#/components/schemas/Semaforo'
+        posibleContenidoNoValido:
+          type: boolean
+          description: Marca informativa de la IA; no rechaza el reporte.
+        contadorDuplicados:
+          type: integer
+          description: '«Reportado por N personas»: reportes que apuntan a este como principal.'
+        reabierto:
+          type: boolean
+      required:
+      - folio
+      - estado
+      - creadoEn
+      - fechaUltimoEstado
+      - semaforo
+      - posibleContenidoNoValido
+      - contadorDuplicados
+      - reabierto
+    Usuarioref:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+      required:
+      - id
+      - nombre
+    EventoHistorial:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date-time
+        accion:
+          type: string
+          example: redireccion
+        estadoAnterior:
+          allOf:
+          - $ref: '#/components/schemas/EstadoReporte'
+          nullable: true
+        estadoNuevo:
+          allOf:
+          - $ref: '#/components/schemas/EstadoReporte'
+          nullable: true
+        organizacionAnterior:
+          type: string
+          nullable: true
+        organizacionNueva:
+          type: string
+          nullable: true
+        areaAnterior:
+          type: string
+          nullable: true
+        areaNueva:
+          type: string
+          nullable: true
+        observaciones:
+          type: string
+          nullable: true
+        visibleCiudadano:
+          type: boolean
+        usuario:
+          allOf:
+          - $ref: '#/components/schemas/Usuarioref'
+          nullable: true
+      required:
+      - fecha
+      - accion
+      - visibleCiudadano
+      description: Registro inmutable del historial (RF-017).
+    ReporteDetalleInstitucional:
+      allOf:
+      - $ref: '#/components/schemas/ReporteResumenInstitucional'
+      - type: object
+        properties:
+          descripcion:
+            type: string
+          ubicacion:
+            $ref: '#/components/schemas/Ubicacion'
+          fotos:
+            type: array
+            items:
+              $ref: '#/components/schemas/ArchivoRef'
+          ciudadano:
+            type: object
+            properties:
+              nombre:
+                type: string
+              telefono:
+                $ref: '#/components/schemas/Telefono'
+            description: Solo para personal de la organización responsable (RF-038); null si la cuenta fue eliminada.
+            nullable: true
+          categoriaSugerida:
+            type: string
+            nullable: true
+            description: Propuesta de la IA.
+          categoriaFinal:
+            type: string
+            nullable: true
+          motivoCanalizacion:
+            allOf:
+            - $ref: '#/components/schemas/MotivoCanalizacion'
+            nullable: true
+          organizacion:
+            type: string
+            nullable: true
+          reportePrincipalFolio:
+            allOf:
+            - $ref: '#/components/schemas/Folio'
+            nullable: true
+          historial:
+            type: array
+            items:
+              $ref: '#/components/schemas/EventoHistorial'
+    Validacion:
+      type: object
+      properties:
+        categoriaFinalId:
+          type: integer
+          format: int64
+          description: 'Opcional: confirma o corrige la categoría de la IA.'
+    Rechazo:
+      type: object
+      properties:
+        motivoPublico:
+          $ref: '#/components/schemas/MotivoRechazo'
+        textoPublico:
+          type: string
+          maxLength: 500
+        justificacion:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: Interna; no la ve el ciudadano.
+      required:
+      - motivoPublico
+      - justificacion
+    MarcaDuplicado:
+      type: object
+      properties:
+        folioPrincipal:
+          $ref: '#/components/schemas/Folio'
+        observaciones:
+          type: string
+          minLength: 5
+          maxLength: 2000
+      required:
+      - folioPrincipal
+      - observaciones
+    Asignacion:
+      type: object
+      properties:
+        areaId:
+          type: integer
+          format: int64
+        justificacion:
+          type: string
+          maxLength: 2000
+          description: Obligatoria cuando es reasignación (estado asignado).
+      required:
+      - areaId
+    Resolucion:
+      type: object
+      properties:
+        observacionCierre:
+          type: string
+          minLength: 5
+          maxLength: 2000
+      required:
+      - observacionCierre
+    Redireccion:
+      type: object
+      properties:
+        organizacionDestinoId:
+          type: integer
+          format: int64
+        justificacion:
+          type: string
+          minLength: 10
+          maxLength: 2000
+      required:
+      - organizacionDestinoId
+      - justificacion
+    OrganizacionResumen:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        nivelParticipacion:
+          $ref: '#/components/schemas/NivelParticipacion'
+      required:
+      - id
+      - nombre
+      - nivelParticipacion
+    SolicitudSenalamiento:
+      type: object
+      properties:
+        motivo:
+          type: string
+          minLength: 10
+          maxLength: 2000
+      required:
+      - motivo
+    ReporteMapa:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - FeatureCollection
+        features:
+          type: array
+          items:
+            type: object
+            properties: {}
+      required:
+      - type
+      - features
+      description: GeoJSON con un punto por reporte (iteración posterior).
+    Conteo:
+      type: object
+      properties:
+        etiqueta:
+          type: string
+        total:
+          type: integer
+      required:
+      - etiqueta
+      - total
+    Estadisticas:
+      type: object
+      properties:
+        periodoInicio:
+          type: string
+          format: date
+        periodoFin:
+          type: string
+          format: date
+        porEstado:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conteo'
+        porCategoria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conteo'
+        porArea:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conteo'
+        porZona:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conteo'
+        tiempoPromedioAtencionHoras:
+          type: number
+          nullable: true
+        enTiempo:
+          type: integer
+        atrasados:
+          type: integer
+        reabiertos:
+          type: integer
+      required:
+      - periodoInicio
+      - periodoFin
+      - porEstado
+      - porCategoria
+      - porArea
+      - porZona
+      - enTiempo
+      - atrasados
+      - reabiertos
+      description: Sin datos personales de ciudadanos (RF-026).
+    SolicitudInforme:
+      type: object
+      properties:
+        periodoInicio:
+          type: string
+          format: date
+        periodoFin:
+          type: string
+          format: date
+        areaId:
+          type: integer
+          format: int64
+          description: Omitir para toda la organización.
+        formato:
+          type: string
+          enum:
+          - pdf
+          - hoja_calculo
+      required:
+      - periodoInicio
+      - periodoFin
+      - formato
+    Area:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        telefonoPublico:
+          type: string
+          nullable: true
+        correoPublico:
+          type: string
+          nullable: true
+        activa:
+          type: boolean
+      required:
+      - id
+      - nombre
+      - activa
+    AreaNueva:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        telefonoPublico:
+          type: string
+          maxLength: 20
+        correoPublico:
+          type: string
+          format: email
+      required:
+      - nombre
+    AreaActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        telefonoPublico:
+          type: string
+          maxLength: 20
+          nullable: true
+        correoPublico:
+          type: string
+          format: email
+          nullable: true
+        activa:
+          type: boolean
+      description: Campos opcionales.
+    UsuarioInstitucional:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        correo:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum:
+          - administrador
+          - coordinacion
+          - personal_area
+        organizacionId:
+          type: integer
+          format: int64
+          nullable: true
+        areaId:
+          type: integer
+          format: int64
+          nullable: true
+        activo:
+          type: boolean
+        ultimoAcceso:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - id
+      - nombre
+      - correo
+      - rol
+      - activo
+    UsuarioNuevo:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        correo:
+          type: string
+          format: email
+        rol:
+          type: string
+          enum:
+          - coordinacion
+          - personal_area
+        areaId:
+          type: integer
+          format: int64
+          description: Obligatoria si rol = personal_area.
+      required:
+      - nombre
+      - correo
+      - rol
+    UsuarioActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        rol:
+          type: string
+          enum:
+          - coordinacion
+          - personal_area
+        areaId:
+          type: integer
+          format: int64
+          nullable: true
+        activo:
+          type: boolean
+      description: Campos opcionales.
+    CredencialTemporal:
+      type: object
+      properties:
+        usuario:
+          $ref: '#/components/schemas/UsuarioInstitucional'
+        passwordTemporal:
+          type: string
+          description: Se muestra una sola vez; debe cambiarse en el primer acceso.
+      required:
+      - usuario
+      - passwordTemporal
+    TiempoObjetivo:
+      type: object
+      properties:
+        estado:
+          $ref: '#/components/schemas/EstadoReporte'
+        horasAmarillo:
+          type: integer
+          minimum: 1
+        horasRojo:
+          type: integer
+          minimum: 2
+          description: Debe ser mayor que horasAmarillo.
+      required:
+      - estado
+      - horasAmarillo
+      - horasRojo
+    Correspondencia:
+      type: object
+      properties:
+        categoriaId:
+          type: integer
+          format: int64
+        categoria:
+          type: string
+        areaId:
+          type: integer
+          format: int64
+          nullable: true
+        area:
+          type: string
+          nullable: true
+        origen:
+          type: string
+          enum:
+          - plantilla
+          - ia
+          - coordinacion
+      required:
+      - categoriaId
+      - categoria
+      - origen
+    ConfirmacionCorrespondencia:
+      type: object
+      properties:
+        elementos:
+          type: array
+          items:
+            type: object
+            properties:
+              categoriaId:
+                type: integer
+                format: int64
+              areaId:
+                type: integer
+                format: int64
+                nullable: true
+            required:
+            - categoriaId
+          minItems: 1
+      required:
+      - elementos
+      description: Al confirmar se activan las reglas con área destino (CU-22).
+    Organizacion:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        nivelParticipacion:
+          $ref: '#/components/schemas/NivelParticipacion'
+        plazoReaperturaDias:
+          type: integer
+        activa:
+          type: boolean
+      required:
+      - id
+      - nombre
+      - nivelParticipacion
+      - plazoReaperturaDias
+      - activa
+    OrganizacionNueva:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 200
+        nivelParticipacion:
+          $ref: '#/components/schemas/NivelParticipacion'
+        plazoReaperturaDias:
+          type: integer
+          minimum: 1
+          default: 15
+      required:
+      - nombre
+      - nivelParticipacion
+    OrganizacionActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 200
+        nivelParticipacion:
+          $ref: '#/components/schemas/NivelParticipacion'
+        plazoReaperturaDias:
+          type: integer
+          minimum: 1
+        activa:
+          type: boolean
+      description: Campos opcionales. Desactivar no borra historial (RF-027).
+    CuentaCoordinacionNueva:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        correo:
+          type: string
+          format: email
+      required:
+      - nombre
+      - correo
+    Categoria:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        categoriaPadreId:
+          type: integer
+          format: int64
+          nullable: true
+        activa:
+          type: boolean
+      required:
+      - id
+      - nombre
+      - activa
+    CategoriaNueva:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        categoriaPadreId:
+          type: integer
+          format: int64
+          description: Omitir para categoría raíz.
+      required:
+      - nombre
+    CategoriaActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        activa:
+          type: boolean
+      description: Campos opcionales.
+    Zona:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        organizacionReceptoraId:
+          type: integer
+          format: int64
+        organizacionesConCobertura:
+          type: array
+          items:
+            type: integer
+            format: int64
+        activa:
+          type: boolean
+        geometria:
+          $ref: '#/components/schemas/GeoJsonPoligono'
+      required:
+      - id
+      - nombre
+      - organizacionReceptoraId
+      - organizacionesConCobertura
+      - activa
+    ZonaNueva:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        organizacionReceptoraId:
+          type: integer
+          format: int64
+        geometria:
+          $ref: '#/components/schemas/GeoJsonPoligono'
+      required:
+      - nombre
+      - organizacionReceptoraId
+      - geometria
+      description: Puede ser el límite del Marco Geoestadístico del INEGI convertido a GeoJSON.
+    ZonaActualizacion:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 150
+        organizacionReceptoraId:
+          type: integer
+          format: int64
+        geometria:
+          $ref: '#/components/schemas/GeoJsonPoligono'
+        activa:
+          type: boolean
+      description: Campos opcionales.
+    CoberturaZona:
+      type: object
+      properties:
+        organizacionIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+      required:
+      - organizacionIds
+    Regla:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        zonaId:
+          type: integer
+          format: int64
+        categoriaId:
+          type: integer
+          format: int64
+        organizacionId:
+          type: integer
+          format: int64
+        areaId:
+          type: integer
+          format: int64
+          nullable: true
+        prioridad:
+          type: integer
+        vigenteDesde:
+          type: string
+          format: date
+        vigenteHasta:
+          type: string
+          format: date
+          nullable: true
+        activa:
+          type: boolean
+      required:
+      - id
+      - zonaId
+      - categoriaId
+      - organizacionId
+      - prioridad
+      - vigenteDesde
+      - activa
+    ReglaNueva:
+      type: object
+      properties:
+        zonaId:
+          type: integer
+          format: int64
+        categoriaId:
+          type: integer
+          format: int64
+        organizacionId:
+          type: integer
+          format: int64
+        areaId:
+          type: integer
+          format: int64
+          description: Debe pertenecer a la organización destino.
+        prioridad:
+          type: integer
+          default: 0
+        vigenteDesde:
+          type: string
+          format: date
+        vigenteHasta:
+          type: string
+          format: date
+      required:
+      - zonaId
+      - categoriaId
+      - organizacionId
+    ReglaActualizacion:
+      type: object
+      properties:
+        prioridad:
+          type: integer
+        areaId:
+          type: integer
+          format: int64
+          nullable: true
+        vigenteHasta:
+          type: string
+          format: date
+          nullable: true
+        activa:
+          type: boolean
+      description: Campos opcionales.
+    CanalExternoNuevo:
+      type: object
+      properties:
+        organizacionId:
+          type: integer
+          format: int64
+        tipo:
+          $ref: '#/components/schemas/TipoCanal'
+        valor:
+          type: string
+          maxLength: 255
+        fuenteVerificacion:
+          type: string
+          maxLength: 255
+      required:
+      - organizacionId
+      - tipo
+      - valor
+      - fuenteVerificacion
+    CanalExternoActualizacion:
+      type: object
+      properties:
+        tipo:
+          $ref: '#/components/schemas/TipoCanal'
+        valor:
+          type: string
+          maxLength: 255
+        fuenteVerificacion:
+          type: string
+          maxLength: 255
+        activo:
+          type: boolean
+      description: Campos opcionales.
+    Senalamiento:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        folio:
+          $ref: '#/components/schemas/Folio'
+        ciudadano:
+          allOf:
+          - $ref: '#/components/schemas/Usuarioref'
+          nullable: true
+        organizacion:
+          type: string
+        senaladoPor:
+          type: string
+        motivo:
+          type: string
+        estado:
+          type: string
+          enum:
+          - pendiente
+          - aceptado
+          - desestimado
+        senalamientosPrevios:
+          type: integer
+        suspensionesPrevias:
+          type: integer
+        creadoEn:
+          type: string
+          format: date-time
+      required:
+      - id
+      - folio
+      - organizacion
+      - senaladoPor
+      - motivo
+      - estado
+      - senalamientosPrevios
+      - suspensionesPrevias
+      - creadoEn
+    ResolucionSenalamiento:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+          - desestimar
+          - suspender
+        motivo:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        diasSuspension:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Solo si decision = suspender. null = indefinida (reincidencia, RF-043).
+      required:
+      - decision
+      - motivo
+    PlantillaArea:
+      type: object
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        categorias:
+          type: array
+          items:
+            type: string
+      required:
+      - nombre
+      - categorias
+    PaginaReporteResumenCiudadano:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReporteResumenCiudadano'
+        pagina:
+          type: integer
+          minimum: 0
+        tamano:
+          type: integer
+          minimum: 1
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+      required:
+      - contenido
+      - pagina
+      - tamano
+      - totalElementos
+      - totalPaginas
+    PaginaReporteResumenInstitucional:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReporteResumenInstitucional'
+        pagina:
+          type: integer
+          minimum: 0
+        tamano:
+          type: integer
+          minimum: 1
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+      required:
+      - contenido
+      - pagina
+      - tamano
+      - totalElementos
+      - totalPaginas
+    PaginaSenalamiento:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/Senalamiento'
+        pagina:
+          type: integer
+          minimum: 0
+        tamano:
+          type: integer
+          minimum: 1
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+      required:
+      - contenido
+      - pagina
+      - tamano
+      - totalElementos
+      - totalPaginas

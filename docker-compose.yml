@@ -1,0 +1,21 @@
+# Base de datos local para desarrollo: PostgreSQL con PostGIS ya instalado.
+# Uso:  docker compose up -d      (detener: docker compose down)
+#
+# El puerto en tu máquina es configurable: por defecto 5432.
+# Si ya tienes otro PostgreSQL ocupando el 5432, copia .env.ejemplo como .env
+# y define ahí DB_PORT=5433 (docker compose lee el archivo .env automáticamente).
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: taan-db
+    environment:
+      POSTGRES_DB: taan
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: taan
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - taan-datos:/var/lib/postgresql/data
+
+volumes:
+  taan-datos:

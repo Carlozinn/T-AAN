@@ -1,0 +1,15 @@
+# Normaliza los finales de línea entre Windows, macOS y Linux.
+* text=auto
+
+# Scripts que exigen un final de línea concreto.
+*.sh   text eol=lf
+mvnw   text eol=lf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# Archivos binarios.
+*.docx binary
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jks  binary

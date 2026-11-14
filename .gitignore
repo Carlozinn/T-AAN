@@ -1,0 +1,49 @@
+# =====================================================================
+# T'AAN - .gitignore de la raíz del repositorio
+# Cubre backend (Maven), web y app (Node/Angular/Ionic) y archivos locales.
+# =====================================================================
+
+# ----- Secretos y configuración local (NUNCA se suben) -----
+.env
+.env.*
+!.env.ejemplo
+google-services.json
+*.jks
+*.keystore
+
+# ----- Archivos subidos por la aplicación en desarrollo -----
+archivos/
+
+# ----- IDEs -----
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# ----- Java / Maven (taan-backend) -----
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# ----- Node / Angular / Ionic (taan-web y taan-app) -----
+node_modules/
+dist/
+www/
+.angular/
+.ionic/
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# ----- Android (taan-app, cuando se agregue la plataforma) -----
+taan-app/android/.gradle/
+taan-app/android/build/
+taan-app/android/app/build/
+taan-app/android/local.properties
+taan-app/android/.idea/
+taan-app/android/capacitor-cordova-android-plugins/
+
+# ----- Sistema operativo -----
+.DS_Store
+Thumbs.db
+desktop.ini

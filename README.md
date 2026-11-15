@@ -31,8 +31,8 @@ taan/
 1. **Clonar el repositorio**
 
    ```bash
-   git clone https://github.com/USUARIO/taan.git
-   cd taan
+   git clone https://github.com/Carlozinn/T-AAN.git
+   cd T-AAN
    ```
 
 2. **Levantar la base de datos**

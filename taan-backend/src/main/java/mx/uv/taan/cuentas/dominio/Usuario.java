@@ -104,6 +104,27 @@ public class Usuario {
         this.credencialTemporal = true;
     }
 
+    public void cambiarNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    /**
+     * Cambia rol y área juntos para respetar el CHECK de la tabla: coordinación sin área,
+     * personal de área con área. Quien llama valida que el área sea de la misma organización.
+     */
+    public void cambiarRol(Rol nuevoRol, Long nuevaAreaId) {
+        if (nuevoRol != Rol.coordinacion && nuevoRol != Rol.personal_area) {
+            throw new IllegalArgumentException("Solo se cambia entre coordinación y personal de área.");
+        }
+        this.rol = nuevoRol;
+        this.areaId = nuevoRol == Rol.coordinacion ? null : nuevaAreaId;
+    }
+
+    /** Desactivar no borra la cuenta ni su historial; solo impide iniciar sesión (RF-032). */
+    public void cambiarActivo(boolean activo) {
+        this.activo = activo;
+    }
+
     public void registrarAcceso() {
         this.ultimoAcceso = Instant.now();
     }

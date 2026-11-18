@@ -35,6 +35,9 @@ taan:
     minutos-acceso: 15
     dias-refresco: 30
     horas-verificacion: 24         # vigencia del enlace de verificación de correo (CU-24)
+    minutos-recuperacion: 60       # vigencia del enlace para restablecer la contraseña (CU-04)
+  cifrado:
+    clave: ${TAAN_CIFRADO_CLAVE}   # obligatoria: 32 bytes en Base64 (AES-256-GCM) para el teléfono
   limites:                         # intentos de inicio de sesión por cuenta y por origen (RNF-009)
     intentos-fallidos: 5
     ventana-minutos: 15

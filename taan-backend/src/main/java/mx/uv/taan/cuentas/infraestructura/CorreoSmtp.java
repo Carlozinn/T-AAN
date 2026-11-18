@@ -21,11 +21,7 @@ public class CorreoSmtp implements EnviadorCorreo {
 
     @Override
     public void enviarVerificacion(String correo, String nombre, String enlace) {
-        SimpleMailMessage mensaje = new SimpleMailMessage();
-        mensaje.setFrom(remitente);
-        mensaje.setTo(correo);
-        mensaje.setSubject("Confirma tu cuenta de T'AAN");
-        mensaje.setText("""
+        enviar(correo, "Confirma tu cuenta de T'AAN", """
                 Hola %s:
 
                 Para activar tu cuenta de T'AAN entra a este enlace:
@@ -34,6 +30,28 @@ public class CorreoSmtp implements EnviadorCorreo {
 
                 El enlace caduca en 24 horas. Si tú no creaste la cuenta, ignora este correo.
                 """.formatted(nombre, enlace));
+    }
+
+    @Override
+    public void enviarRecuperacion(String correo, String nombre, String enlace) {
+        enviar(correo, "Restablece tu contraseña de T'AAN", """
+                Hola %s:
+
+                Para elegir una nueva contraseña entra a este enlace:
+
+                %s
+
+                El enlace caduca en una hora y solo funciona una vez. Si tú no lo pediste,
+                ignora este correo: tu contraseña actual sigue funcionando.
+                """.formatted(nombre, enlace));
+    }
+
+    private void enviar(String correo, String asunto, String texto) {
+        SimpleMailMessage mensaje = new SimpleMailMessage();
+        mensaje.setFrom(remitente);
+        mensaje.setTo(correo);
+        mensaje.setSubject(asunto);
+        mensaje.setText(texto);
         sender.send(mensaje);
     }
 }

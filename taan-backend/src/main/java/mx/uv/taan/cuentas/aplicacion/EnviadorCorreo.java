@@ -9,4 +9,7 @@ public interface EnviadorCorreo {
 
     /** Envía el enlace para confirmar la cuenta nueva (RF-001). */
     void enviarVerificacion(String correo, String nombre, String enlace);
+
+    /** Envía el enlace para restablecer la contraseña olvidada (CU-04). */
+    void enviarRecuperacion(String correo, String nombre, String enlace);
 }

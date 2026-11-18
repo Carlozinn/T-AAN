@@ -22,6 +22,9 @@ public final class JwtTaan {
     /** Confirma el correo de una cuenta nueva (CU-24); viaja en el enlace del correo. */
     public static final String TIPO_VERIFICACION = "verificacion";
 
+    /** Restablece la contraseña olvidada (CU-04); de un solo uso gracias a su huella. */
+    public static final String TIPO_RECUPERACION = "recuperacion";
+
     private JwtTaan() {
     }
 }

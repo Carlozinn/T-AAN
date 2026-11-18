@@ -18,4 +18,9 @@ public class CorreoLog implements EnviadorCorreo {
     public void enviarVerificacion(String correo, String nombre, String enlace) {
         log.info("[solo desarrollo] Enlace de verificación para {}: {}", correo, enlace);
     }
+
+    @Override
+    public void enviarRecuperacion(String correo, String nombre, String enlace) {
+        log.info("[solo desarrollo] Enlace de recuperación para {}: {}", correo, enlace);
+    }
 }

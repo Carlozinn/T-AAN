@@ -113,6 +113,30 @@ public class Ciudadano {
         this.passwordHash = nuevoHash;
     }
 
+    /**
+     * Restablece la contraseña olvidada (CU-04). Usar el enlace prueba que el ciudadano
+     * controla el correo, así que también queda verificado.
+     */
+    public void restablecerPassword(String nuevoHash) {
+        this.passwordHash = nuevoHash;
+        this.correoVerificado = true;
+    }
+
+    /** Corrige el nombre visible (CU-25). */
+    public void cambiarNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    /** Guarda el teléfono ya cifrado (RF-038); el cifrado lo hace el servicio. */
+    public void cambiarTelefonoCifrado(String telefonoCifrado) {
+        this.telefonoCifrado = telefonoCifrado;
+    }
+
+    /** Preferencia de avisos por correo (RF-044). */
+    public void cambiarAvisosCorreo(boolean avisosCorreo) {
+        this.avisosCorreo = avisosCorreo;
+    }
+
     public boolean esDeGoogle() {
         return metodoAcceso == MetodoAcceso.google;
     }

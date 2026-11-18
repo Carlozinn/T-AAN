@@ -12,9 +12,11 @@ import jakarta.validation.Valid;
 import mx.uv.taan.cuentas.api.dto.LoginCorreoSolicitud;
 import mx.uv.taan.cuentas.api.dto.LoginGoogleSolicitud;
 import mx.uv.taan.cuentas.api.dto.RegistroCorreoSolicitud;
+import mx.uv.taan.cuentas.api.dto.RestablecimientoSolicitud;
 import mx.uv.taan.cuentas.api.dto.SolicitudCorreoSolicitud;
 import mx.uv.taan.cuentas.api.dto.TokenVerificacionSolicitud;
 import mx.uv.taan.cuentas.aplicacion.ServicioAccesoCiudadano;
+import mx.uv.taan.cuentas.aplicacion.ServicioRecuperacionPassword;
 import mx.uv.taan.cuentas.aplicacion.ServicioRegistroCiudadano;
 import mx.uv.taan.cuentas.aplicacion.SesionEmitida;
 
@@ -28,10 +30,13 @@ public class AutenticacionCiudadanaController {
 
     private final ServicioRegistroCiudadano registro;
     private final ServicioAccesoCiudadano acceso;
+    private final ServicioRecuperacionPassword recuperacion;
 
-    public AutenticacionCiudadanaController(ServicioRegistroCiudadano registro, ServicioAccesoCiudadano acceso) {
+    public AutenticacionCiudadanaController(ServicioRegistroCiudadano registro, ServicioAccesoCiudadano acceso,
+                                            ServicioRecuperacionPassword recuperacion) {
         this.registro = registro;
         this.acceso = acceso;
+        this.recuperacion = recuperacion;
     }
 
     @PostMapping("/registro")
@@ -51,6 +56,18 @@ public class AutenticacionCiudadanaController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void reenviar(@Valid @RequestBody SolicitudCorreoSolicitud solicitud) {
         registro.reenviar(solicitud.correo());
+    }
+
+    @PostMapping("/recuperacion")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void solicitarRecuperacion(@Valid @RequestBody SolicitudCorreoSolicitud solicitud) {
+        recuperacion.solicitar(solicitud.correo());
+    }
+
+    @PostMapping("/recuperacion/confirmacion")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void restablecerPassword(@Valid @RequestBody RestablecimientoSolicitud solicitud) {
+        recuperacion.restablecer(solicitud.token(), solicitud.nuevaPassword());
     }
 
     @PostMapping("/sesion")

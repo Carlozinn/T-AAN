@@ -41,6 +41,12 @@ public class ServicioOrganizaciones {
         return organizaciones.findAllByOrderByNombre().stream().map(OrganizacionVista::de).toList();
     }
 
+    /** Una organización por id (para mostrar su nombre o su plazo de reapertura). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<OrganizacionVista> consultar(long id) {
+        return organizaciones.findById(id).map(OrganizacionVista::de);
+    }
+
     @Transactional
     public OrganizacionVista crear(String nombre, NivelParticipacion nivel, Integer plazoReaperturaDias) {
         String limpio = nombre.strip();

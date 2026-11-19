@@ -16,6 +16,8 @@ public interface ReglaRepository extends JpaRepository<Regla, Long> {
 
     List<Regla> findByOrganizacionIdAndActivaTrue(Long organizacionId);
 
+    List<Regla> findByZonaIdAndCategoriaIdAndActivaTrue(Long zonaId, Long categoriaId);
+
     Optional<Regla> findFirstByZonaIdAndCategoriaIdAndOrganizacionIdAndActivaTrue(
             Long zonaId, Long categoriaId, Long organizacionId);
 

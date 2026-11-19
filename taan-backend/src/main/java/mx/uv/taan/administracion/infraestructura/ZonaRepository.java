@@ -132,6 +132,19 @@ public class ZonaRepository {
     }
 
     /**
+     * Zona activa que contiene el punto (la de menor superficie si hay varias, CU-15 FA-01),
+     * sin la geometría: la usa el motor de reglas.
+     */
+    public Optional<FilaZona> zonaActivaQueContiene(double latitud, double longitud) {
+        return jdbc.query("""
+                SELECT id, nombre, organizacion_receptora_id, activa, NULL AS geojson
+                FROM zona_cobertura
+                WHERE activa AND ST_Contains(geometria, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+                ORDER BY ST_Area(geometria) LIMIT 1""", FILA, longitud, latitud)
+                .stream().findFirst();
+    }
+
+    /**
      * Nombre de la zona activa que contiene el punto. Si hay zonas superpuestas se toma la de
      * menor superficie, por ser la más específica (CU-15 FA-01).
      */

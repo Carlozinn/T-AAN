@@ -3,12 +3,18 @@ package mx.uv.taan.cuentas.infraestructura;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import mx.uv.taan.comun.error.LimiteExcedidoException;
 
 /**
  * Limita los intentos de inicio de sesión por cuenta y por origen (tabla intento_acceso,
  * RNF-009). No almacena contraseñas ni revela si un correo existe.
+ *
+ * <p>Cada registro se guarda en su <b>propia transacción</b> (REQUIRES_NEW): el intento fallido
+ * debe quedar guardado aunque el inicio de sesión termine en error y su transacción se
+ * revierta; si no, el límite nunca se alcanzaría.</p>
  *
  * <p>Nota: origen_ip guarda request.getRemoteAddr(); si el backend queda detrás de un
  * proxy inverso en el despliegue, habrá que tomar X-Forwarded-For con ForwardedHeaderFilter.</p>
@@ -33,6 +39,7 @@ public class RegistroIntentosAcceso {
      * origen acumulan demasiados intentos fallidos en la ventana. Se llama antes de
      * comparar la contraseña, para que adivinar tampoco cueste cómputo.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = LimiteExcedidoException.class)
     public void asegurarDentroDelLimite(String origenIp, Long ciudadanoId, Long usuarioId) {
         boolean excedido = contarFallidos("origen_ip = ?::inet", origenIp) >= maxFallidos
                 || (ciudadanoId != null && contarFallidos("ciudadano_id = ?", ciudadanoId) >= maxFallidos)
@@ -43,10 +50,12 @@ public class RegistroIntentosAcceso {
         }
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrarExitoso(String origenIp, Long ciudadanoId, Long usuarioId) {
         registrar(origenIp, ciudadanoId, usuarioId, "exitoso");
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrarFallido(String origenIp, Long ciudadanoId, Long usuarioId) {
         registrar(origenIp, ciudadanoId, usuarioId, "fallido");
     }

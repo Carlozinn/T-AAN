@@ -10,7 +10,11 @@ public class LimiteExcedidoException extends ReglaNegocioException {
     private final long reintentarEnSegundos;
 
     public LimiteExcedidoException(long reintentarEnSegundos) {
-        super(429, "LIMITE_EXCEDIDO", "Por seguridad, espera unos minutos antes de volver a intentarlo.");
+        this(reintentarEnSegundos, "Por seguridad, espera unos minutos antes de volver a intentarlo.");
+    }
+
+    public LimiteExcedidoException(long reintentarEnSegundos, String mensaje) {
+        super(429, "LIMITE_EXCEDIDO", mensaje);
         this.reintentarEnSegundos = reintentarEnSegundos;
     }
 

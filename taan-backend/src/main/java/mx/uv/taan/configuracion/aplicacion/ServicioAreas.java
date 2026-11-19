@@ -34,6 +34,12 @@ public class ServicioAreas {
         return areas.findByOrganizacionIdOrderByNombre(organizacionId).stream().map(AreaVista::de).toList();
     }
 
+    /** Un área por id, de cualquier organización (para mostrar su nombre y contacto público). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<AreaVista> buscar(long areaId) {
+        return areas.findById(areaId).map(AreaVista::de);
+    }
+
     /** Áreas activas: las que puede elegir el personal al asignar o reasignar (CU-07). */
     @Transactional(readOnly = true)
     public List<AreaVista> listarActivas(long organizacionId) {

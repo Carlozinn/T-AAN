@@ -46,6 +46,15 @@ public class ServicioCanalesExternos {
                 .toList();
     }
 
+    /** Canales activos de una organización: los que ve el ciudadano en canalización externa (CU-03). */
+    @Transactional(readOnly = true)
+    public List<CanalExternoVista> listarActivosDe(long organizacionId) {
+        String nombre = organizaciones.findById(organizacionId).map(Organizacion::getNombre).orElse(null);
+        return canales.findByOrganizacionIdAndActivoTrue(organizacionId).stream()
+                .map(c -> CanalExternoVista.de(c, nombre))
+                .toList();
+    }
+
     @Transactional
     public CanalExternoVista crear(long organizacionId, TipoCanal tipo, String valor, String fuenteVerificacion) {
         Organizacion organizacion = organizaciones.findById(organizacionId)

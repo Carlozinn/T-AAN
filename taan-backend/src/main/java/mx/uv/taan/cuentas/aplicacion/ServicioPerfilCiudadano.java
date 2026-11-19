@@ -31,6 +31,19 @@ public class ServicioPerfilCiudadano {
         return perfilDe(buscar(ciudadanoId));
     }
 
+    /**
+     * Condición de la cuenta para crear reportes (CU-01). Una suspensión con fecha ya vencida
+     * cuenta como no vigente; levantarla formalmente es parte de la moderación (incremento 6).
+     */
+    @Transactional(readOnly = true)
+    public CondicionCiudadano condicionParaReportar(long ciudadanoId) {
+        Ciudadano cuenta = buscar(ciudadanoId);
+        boolean suspendida = cuenta.getEstado() == EstadoCuenta.suspendida
+                && (cuenta.getSuspendidaHasta() == null || cuenta.getSuspendidaHasta().isAfter(java.time.Instant.now()));
+        return new CondicionCiudadano(cuenta.isCorreoVerificado(), cuenta.requiereTelefono(), suspendida,
+                cuenta.getMotivoSuspension(), cuenta.getSuspendidaHasta());
+    }
+
     /** Solo cambia los campos enviados (null = sin cambio), como indica el contrato. */
     @Transactional
     public PerfilCiudadano actualizar(long ciudadanoId, String nombre, String telefono, Boolean avisosCorreo) {

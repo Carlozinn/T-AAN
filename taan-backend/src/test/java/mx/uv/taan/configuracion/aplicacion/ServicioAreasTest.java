@@ -14,7 +14,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -109,6 +111,17 @@ class ServicioAreasTest {
 
         assertEquals("PLANTILLA_APLICADA", error.getCodigo());
         verify(areas, never()).save(any());
+    }
+
+    @Test
+    void devuelveLosNombresDeVariasAreasEnUnaSolaConsulta() {
+        Set<Long> ids = Set.of(7L, 8L);
+        when(areas.findAllById(ids)).thenReturn(List.of(area(7L), area(8L)));
+
+        Map<Long, String> nombres = servicio.nombres(ids);
+
+        assertEquals(Map.of(7L, "Obras Públicas", 8L, "Obras Públicas"), nombres);
+        verify(areas).findAllById(ids);
     }
 
     private static Area area(long id) {

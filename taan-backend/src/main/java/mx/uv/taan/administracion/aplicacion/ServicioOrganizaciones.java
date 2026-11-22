@@ -1,6 +1,9 @@
 package mx.uv.taan.administracion.aplicacion;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,13 @@ public class ServicioOrganizaciones {
     @Transactional(readOnly = true)
     public List<OrganizacionVista> listar() {
         return organizaciones.findAllByOrderByNombre().stream().map(OrganizacionVista::de).toList();
+    }
+
+    /** Nombres de organizaciones por id (para el detalle y el historial de los reportes). */
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombres(Collection<Long> ids) {
+        return organizaciones.findAllById(ids).stream()
+                .collect(Collectors.toMap(Organizacion::getId, Organizacion::getNombre));
     }
 
     @Transactional

@@ -1,6 +1,9 @@
 package mx.uv.taan.configuracion.aplicacion;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,12 @@ public class ServicioAreas {
     public List<AreaVista> listarActivas(long organizacionId) {
         return areas.findByOrganizacionIdAndActivaTrueOrderByNombre(organizacionId).stream()
                 .map(AreaVista::de).toList();
+    }
+
+    /** Nombres de áreas por id, de cualquier organización (historial de reportes canalizados). */
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombres(Collection<Long> ids) {
+        return areas.findAllById(ids).stream().collect(Collectors.toMap(Area::getId, Area::getNombre));
     }
 
     @Transactional

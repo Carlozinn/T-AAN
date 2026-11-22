@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import mx.uv.taan.administracion.aplicacion.CategoriaVista;
+import mx.uv.taan.administracion.aplicacion.OrganizacionVista;
 import mx.uv.taan.administracion.aplicacion.ServicioCategorias;
 import mx.uv.taan.administracion.aplicacion.ServicioOrganizaciones;
 import mx.uv.taan.archivos.aplicacion.ServicioArchivos;
@@ -121,7 +122,7 @@ public class ServicioBandeja {
                 : perfiles.contacto(r.getCiudadanoId()).orElse(null);
         String principal = r.getReportePrincipalId() == null ? null
                 : expedientes.porId(r.getReportePrincipalId()).map(Reporte::getFolio).orElse(null);
-        String organizacion = organizaciones.nombres(List.of(r.getOrganizacionId())).get(r.getOrganizacionId());
+        String organizacion = organizaciones.consultar(r.getOrganizacionId()).map(OrganizacionVista::nombre).orElse(null);
 
         return new ReporteDetalleInstitucional(resumen.folio(), resumen.estado(), resumen.categoria(), resumen.area(),
                 resumen.creadoEn(), resumen.fechaUltimoEstado(), resumen.semaforo(),

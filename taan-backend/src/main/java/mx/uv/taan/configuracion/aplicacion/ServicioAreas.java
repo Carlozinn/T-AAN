@@ -3,6 +3,7 @@ package mx.uv.taan.configuracion.aplicacion;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -35,6 +36,12 @@ public class ServicioAreas {
     @Transactional(readOnly = true)
     public List<AreaVista> listar(long organizacionId) {
         return areas.findByOrganizacionIdOrderByNombre(organizacionId).stream().map(AreaVista::de).toList();
+    }
+
+    /** Un área por id, de cualquier organización (para mostrar su nombre y contacto público). */
+    @Transactional(readOnly = true)
+    public Optional<AreaVista> buscar(long areaId) {
+        return areas.findById(areaId).map(AreaVista::de);
     }
 
     /** Áreas activas: las que puede elegir el personal al asignar o reasignar (CU-07). */

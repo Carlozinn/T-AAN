@@ -13,6 +13,7 @@ import mx.uv.taan.administracion.aplicacion.ServicioCategorias;
 import mx.uv.taan.archivos.aplicacion.ArchivoRef;
 import mx.uv.taan.archivos.aplicacion.ServicioArchivos;
 import mx.uv.taan.comun.error.ReglaNegocioException;
+import mx.uv.taan.configuracion.aplicacion.AreaVista;
 import mx.uv.taan.configuracion.aplicacion.ServicioAreas;
 import mx.uv.taan.cuentas.aplicacion.UsuarioActual;
 import mx.uv.taan.cuentas.dominio.Rol;
@@ -218,7 +219,7 @@ public class ServicioFlujoAtencion {
     }
 
     private String nombreArea(Long areaId) {
-        return areaId == null ? "responsable" : areas.nombres(Set.of(areaId)).getOrDefault(areaId, "responsable");
+        return areaId == null ? "responsable" : areas.buscar(areaId).map(AreaVista::nombre).orElse("responsable");
     }
 
     /** Texto público de cada motivo del catálogo (RF-019, punto 8). */

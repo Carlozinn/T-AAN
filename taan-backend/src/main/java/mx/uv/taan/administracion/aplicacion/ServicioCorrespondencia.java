@@ -21,9 +21,11 @@ import mx.uv.taan.configuracion.aplicacion.AreaVista;
 import mx.uv.taan.configuracion.aplicacion.PlantillaAreaVista;
 import mx.uv.taan.configuracion.aplicacion.ServicioAreas;
 import mx.uv.taan.configuracion.aplicacion.ServicioPlantilla;
+import mx.uv.taan.ia.IaNoDisponibleException;
+import mx.uv.taan.ia.ProponedorCorrespondencia;
 
 /**
- * Correspondencia categoría → área de una organización (CU-22 pasos 4-5, RF-039).
+ * Correspondencia categoría → área de una organización (CU-22 pasos 3-5, RF-039).
  *
  * <p>No tiene tabla propia: la correspondencia son las reglas de la organización en su propio
  * territorio (las zonas donde es receptora por defecto). Confirmarla actualiza el área de esas
@@ -40,14 +42,17 @@ public class ServicioCorrespondencia {
     private final CategoriaRepository categorias;
     private final ServicioAreas areas;
     private final ServicioPlantilla plantilla;
+    private final ProponedorCorrespondencia proponedor;
 
     public ServicioCorrespondencia(ReglaRepository reglas, ZonaRepository zonas, CategoriaRepository categorias,
-                                   ServicioAreas areas, ServicioPlantilla plantilla) {
+                                   ServicioAreas areas, ServicioPlantilla plantilla,
+                                   ProponedorCorrespondencia proponedor) {
         this.reglas = reglas;
         this.zonas = zonas;
         this.categorias = categorias;
         this.areas = areas;
         this.plantilla = plantilla;
+        this.proponedor = proponedor;
     }
 
     /** Elemento de la confirmación: areaId null deja la categoría sin área (la valida la coordinación). */
@@ -111,6 +116,48 @@ public class ServicioCorrespondencia {
             }
         }
         return consultar(organizacionId);
+    }
+
+    /**
+     * CU-22 paso 3: la IA propone un área para cada categoría según las funciones de las áreas
+     * activas. No guarda nada: lo propuesto llega con origen «ia» y solo se activa con
+     * {@link #confirmar} (EX-03). Sin transacción: no se mantiene una conexión abierta mientras
+     * responde la IA.
+     */
+    public List<CorrespondenciaVista> proponer(long organizacionId) {
+        List<AreaVista> activas = areas.listarActivas(organizacionId);
+        if (activas.stream().allMatch(a -> a.funciones() == null)) {
+            throw ReglaNegocioException.noProcesable("SIN_FUNCIONES",
+                    "Captura las funciones de al menos un área para pedir la propuesta.");
+        }
+        List<CorrespondenciaVista> vigente = consultar(organizacionId);
+        Map<Long, Categoria> todas = categorias.findAll().stream()
+                .collect(Collectors.toMap(Categoria::getId, Function.identity()));
+        Map<Long, Long> propuesta;
+        try {
+            propuesta = proponedor.proponer(
+                    activas.stream().map(a -> new ProponedorCorrespondencia.AreaParaIa(a.id(), a.nombre(), a.funciones()))
+                            .toList(),
+                    vigente.stream().map(v -> new ProponedorCorrespondencia.CategoriaParaIa(v.categoriaId(),
+                            nombreCompleto(todas.get(v.categoriaId()), todas))).toList());
+        } catch (IaNoDisponibleException e) {
+            throw ReglaNegocioException.noProcesable("IA_NO_DISPONIBLE",
+                    "No se pudo obtener la propuesta en este momento. Tu correspondencia no cambió; "
+                            + "puedes ajustarla manualmente o intentarlo más tarde.");
+        }
+        Map<Long, String> nombresArea = activas.stream().collect(Collectors.toMap(AreaVista::id, AreaVista::nombre));
+        return vigente.stream()
+                .map(v -> {
+                    Long areaId = propuesta.get(v.categoriaId());
+                    return areaId == null ? v
+                            : new CorrespondenciaVista(v.categoriaId(), v.categoria(), areaId, nombresArea.get(areaId), "ia");
+                })
+                .toList();
+    }
+
+    /** «Categoría» o «Categoría / Subcategoría», para que la IA entienda el contexto de cada una. */
+    private static String nombreCompleto(Categoria c, Map<Long, Categoria> todas) {
+        return c.esRaiz() ? c.getNombre() : nombreRaiz(c, todas) + " / " + c.getNombre();
     }
 
     /** Nombre de la categoría raíz → nombre del área estándar que la atiende. */

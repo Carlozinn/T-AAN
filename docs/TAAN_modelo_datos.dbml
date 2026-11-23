@@ -203,6 +203,7 @@ Table area {
   nombre varchar(150) [not null]
   telefono_publico varchar(20) [note: 'Contacto oficial que ve el ciudadano si su reporte es rechazado']
   correo_publico varchar(150)
+  funciones varchar(1000) [note: 'Qué atiende el área; se envía a la IA para proponer la correspondencia (CU-22)']
   activa boolean [not null, default: true]
   creado_en timestamptz [not null, default: `now()`]
 

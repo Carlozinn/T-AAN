@@ -116,6 +116,7 @@ CREATE TABLE area (
   nombre           varchar(150) NOT NULL,
   telefono_publico varchar(20),
   correo_publico   varchar(150),
+  funciones        varchar(1000),
   activa           boolean NOT NULL DEFAULT true,
   creado_en        timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organizacion_id, nombre),
@@ -125,6 +126,8 @@ COMMENT ON TABLE area IS
   'Áreas internas de cada organización; las gestiona su coordinación (RF-033, CU-13).';
 COMMENT ON COLUMN area.telefono_publico IS
   'Contacto oficial que ve el ciudadano cuando su reporte es rechazado (RF-036).';
+COMMENT ON COLUMN area.funciones IS
+  'Qué atiende el área, en texto libre; se envía a la IA para proponer la correspondencia (CU-22).';
 
 CREATE TABLE usuario (
   id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

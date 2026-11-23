@@ -58,22 +58,24 @@ public class ServicioAreas {
     }
 
     @Transactional
-    public AreaVista crear(long organizacionId, String nombre, String telefonoPublico, String correoPublico) {
+    public AreaVista crear(long organizacionId, String nombre, String telefonoPublico, String correoPublico,
+                           String funciones) {
         String limpio = nombre.strip();
         if (areas.existsByOrganizacionIdAndNombreIgnoreCase(organizacionId, limpio)) {
             throw nombreDuplicado();
         }
-        return AreaVista.de(areas.save(
-                new Area(organizacionId, limpio, vacioANulo(telefonoPublico), vacioANulo(correoPublico))));
+        Area area = new Area(organizacionId, limpio, vacioANulo(telefonoPublico), vacioANulo(correoPublico));
+        area.cambiarFunciones(vacioANulo(funciones));
+        return AreaVista.de(areas.save(area));
     }
 
     /**
-     * PATCH: null = sin cambio; para borrar un contacto se envía cadena vacía. No se desactiva
-     * un área con personal activo: primero hay que reasignarlo (409 AREA_CON_PERSONAL).
+     * PATCH: null = sin cambio; para borrar un contacto o las funciones se envía cadena vacía. No
+     * se desactiva un área con personal activo: primero hay que reasignarlo (409 AREA_CON_PERSONAL).
      */
     @Transactional
     public AreaVista actualizar(long organizacionId, long areaId, String nombre,
-                                String telefonoPublico, String correoPublico, Boolean activa) {
+                                String telefonoPublico, String correoPublico, String funciones, Boolean activa) {
         Area area = areas.findByIdAndOrganizacionId(areaId, organizacionId)
                 .orElseThrow(ReglaNegocioException::noEncontrado);
         if (nombre != null) {
@@ -87,6 +89,9 @@ public class ServicioAreas {
             area.cambiarContacto(
                     telefonoPublico != null ? vacioANulo(telefonoPublico) : area.getTelefonoPublico(),
                     correoPublico != null ? vacioANulo(correoPublico) : area.getCorreoPublico());
+        }
+        if (funciones != null) {
+            area.cambiarFunciones(vacioANulo(funciones));
         }
         if (Boolean.FALSE.equals(activa) && area.isActiva() && cuentas.hayPersonalActivoEnArea(areaId)) {
             throw ReglaNegocioException.conflicto("AREA_CON_PERSONAL",

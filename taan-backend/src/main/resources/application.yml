@@ -51,12 +51,14 @@ taan:
   cors:
     origenes: http://localhost:4200,http://localhost:8100,capacitor://localhost,https://localhost
   ia:
+    timeout-segundos: ${TAAN_IA_TIMEOUT_SEGUNDOS:15}   # por llamada a cada proveedor
+    intentos-maximos: ${TAAN_IA_INTENTOS_MAXIMOS:3}    # si fallan ambos proveedores, se reintenta (RF-007)
     gemini:
       api-key: ${GEMINI_API_KEY:}
       modelo: ${GEMINI_MODELO:gemini-flash-lite-latest}   # verificar el código vigente en Google AI Studio
     groq:
       api-key: ${GROQ_API_KEY:}
-      modelo: ${GROQ_MODELO:llama-3.3-70b-versatile}      # verificar el modelo vigente en la consola de Groq
+      modelo: ${GROQ_MODELO:openai/gpt-oss-120b}      # verificar el modelo vigente en la consola de Groq
   captcha:
     secreto: ${TURNSTILE_SECRETO:}
   archivos:

@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import mx.uv.taan.ia.ClasificadorIa;
+import mx.uv.taan.ia.IaNoDisponibleException;
 import mx.uv.taan.ia.ResultadoClasificacion;
 
 /**
@@ -19,11 +21,12 @@ import mx.uv.taan.ia.ResultadoClasificacion;
  *
  * <ul>
  *   <li>Arranca en cuanto se confirma el registro del reporte (evento ReporteRegistrado).</li>
- *   <li>Cada cierto tiempo recoge los pendientes que quedaron sin procesar, por ejemplo si el
- *       servidor se reinició: ningún reporte se queda «En revisión» para siempre.</li>
+ *   <li>Cada cierto tiempo recoge los pendientes que quedaron sin procesar: los que la IA no pudo
+ *       clasificar y los que se quedaron a medias, por ejemplo si el servidor se reinició.</li>
  * </ul>
- * Si la IA falla (ambos proveedores), el reporte se canaliza igual, sin clasificación, a la
- * organización receptora por defecto (CU-01 EX-04).
+ * Si fallan los dos proveedores, el reporte sigue pendiente y se reintenta hasta
+ * taan.ia.intentos-maximos veces; después se canaliza sin clasificación a la organización
+ * receptora por defecto (RF-007 punto 5, CU-01 EX-04).
  */
 @Component
 public class ProcesadorReportes {
@@ -32,10 +35,13 @@ public class ProcesadorReportes {
 
     private final ServicioCanalizacion canalizacion;
     private final ClasificadorIa clasificador;
+    private final int intentosMaximos;
 
-    public ProcesadorReportes(ServicioCanalizacion canalizacion, ClasificadorIa clasificador) {
+    public ProcesadorReportes(ServicioCanalizacion canalizacion, ClasificadorIa clasificador,
+                              @Value("${taan.ia.intentos-maximos}") int intentosMaximos) {
         this.canalizacion = canalizacion;
         this.clasificador = clasificador;
+        this.intentosMaximos = intentosMaximos;
     }
 
     @Async
@@ -49,25 +55,29 @@ public class ProcesadorReportes {
         canalizacion.pendientesParaReintentar().forEach(this::procesar);
     }
 
+    /** La IA se llama fuera de toda transacción: ninguna fila queda bloqueada mientras responde. */
     void procesar(long reporteId) {
         try {
             Optional<String> descripcion = canalizacion.descripcionSiPendiente(reporteId);
             if (descripcion.isEmpty()) {
                 return;
             }
-            canalizacion.aplicar(reporteId, clasificar(descripcion.get()));
+            ResultadoClasificacion resultado;
+            try {
+                resultado = clasificador.clasificar(descripcion.get(), canalizacion.catalogoParaIa());
+            } catch (IaNoDisponibleException e) {
+                if (!canalizacion.registrarFalloIa(reporteId, intentosMaximos)) {
+                    log.warn("La IA no clasificó el reporte {}; se reintentará.", reporteId);
+                    return;
+                }
+                log.warn("La IA no clasificó el reporte {} tras {} intentos; se canaliza sin clasificación.",
+                        reporteId, intentosMaximos);
+                resultado = ResultadoClasificacion.sinClasificacion(ResultadoClasificacion.IA_NO_DISPONIBLE);
+            }
+            canalizacion.aplicar(reporteId, resultado);
         } catch (RuntimeException e) {
             // Queda pendiente y la tarea programada lo reintentará.
             log.error("No se pudo canalizar el reporte {}; se reintentará.", reporteId, e);
-        }
-    }
-
-    private ResultadoClasificacion clasificar(String descripcion) {
-        try {
-            return clasificador.clasificar(descripcion, canalizacion.catalogoParaIa());
-        } catch (RuntimeException e) {
-            log.warn("La IA no pudo clasificar: {}", e.getMessage());
-            return ResultadoClasificacion.sinClasificacion();
         }
     }
 }

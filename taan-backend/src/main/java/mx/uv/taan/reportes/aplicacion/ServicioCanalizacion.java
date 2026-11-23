@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -84,8 +85,24 @@ public class ServicioCanalizacion {
     }
 
     /**
+     * Cuenta un intento en que la IA no respondió (RF-007 punto 5).
+     *
+     * @return true si ya se agotaron los intentos y hay que canalizarlo sin clasificación
+     */
+    @Transactional
+    public boolean registrarFalloIa(long reporteId, int intentosMaximos) {
+        Reporte reporte = reportes.bloquear(reporteId).orElse(null);
+        if (reporte == null || reporte.getEstado() != EstadoReporte.PENDIENTE_CANALIZACION) {
+            return false;
+        }
+        reporte.registrarIntentoIa();
+        return reporte.getIntentosIa() >= intentosMaximos;
+    }
+
+    /**
      * Canaliza el reporte. Si ya no está pendiente (otro proceso lo canalizó) no hace nada. Si su
      * ubicación ya no está en ninguna zona activa, lo deja pendiente y lo avisa en el log.
+     * intentos_ia cuenta las llamadas a la IA: solo suma si el resultado viene de un proveedor.
      */
     @Transactional
     public void aplicar(long reporteId, ResultadoClasificacion resultado) {
@@ -93,7 +110,9 @@ public class ServicioCanalizacion {
         if (reporte == null || reporte.getEstado() != EstadoReporte.PENDIENTE_CANALIZACION) {
             return;
         }
-        reporte.registrarIntentoIa();
+        if (resultado.proveedor() != null) {
+            reporte.registrarIntentoIa();
+        }
         Long categoriaId = resolverCategoria(resultado);
         Optional<MotorReglas.Destino> destino = motor.determinar(reporte.getLatitud(), reporte.getLongitud(), categoriaId);
         if (destino.isEmpty()) {
@@ -104,7 +123,7 @@ public class ServicioCanalizacion {
         EstadoReporte nuevoEstado = d.externa() ? EstadoReporte.CANALIZACION_EXTERNA : EstadoReporte.RECIBIDO;
         reporte.canalizar(categoriaId, resultado.posibleContenidoNoValido(), d.organizacionId(), d.areaId(),
                 MotivoCanalizacion.valueOf(d.motivo().name()), nuevoEstado);
-        resultadosIa.guardar(reporteId, comoJson(resultado));
+        resultadosIa.guardar(reporteId, comoJson(resultado, categoriaId, reporte.getIntentosIa()));
         historial.save(HistorialReporte.canalizacion(reporteId, nuevoEstado, d.organizacionId(), d.areaId(),
                 textoPublico(d)));
         log.info("Reporte {} canalizado a {} ({}, motivo {}).", reporte.getFolio(), d.organizacion(),
@@ -130,7 +149,7 @@ public class ServicioCanalizacion {
             return raiz.get().id();
         }
         return activas.stream()
-                .filter(c -> java.util.Objects.equals(c.categoriaPadreId(), raiz.get().id()))
+                .filter(c -> Objects.equals(c.categoriaPadreId(), raiz.get().id()))
                 .filter(c -> c.nombre().equalsIgnoreCase(resultado.subcategoria().strip()))
                 .map(CategoriaVista::id)
                 .findFirst()
@@ -145,11 +164,25 @@ public class ServicioCanalizacion {
                 : "Tu reporte quedó a cargo de " + d.organizacion() + ", que lo revisará.";
     }
 
-    private String comoJson(ResultadoClasificacion resultado) {
+    /**
+     * Lo que propuso la IA, para trazabilidad (columna resultado_ia). No guarda la descripción ni
+     * datos personales. razon explica por qué no hay categoría.
+     */
+    String comoJson(ResultadoClasificacion resultado, Long categoriaId, int intentos) {
         Map<String, Object> datos = new LinkedHashMap<>();
+        datos.put("proveedor", resultado.proveedor());
+        datos.put("modelo", resultado.modelo());
         datos.put("categoria", resultado.categoria());
         datos.put("subcategoria", resultado.subcategoria());
+        datos.put("categoriaId", categoriaId);
         datos.put("posibleContenidoNoValido", resultado.posibleContenidoNoValido());
+        datos.put("motivoContenido", resultado.motivoContenido());
+        datos.put("intentos", intentos);
+        datos.put("fecha", Instant.now().toString());
+        if (categoriaId == null) {
+            // Si la IA nombró una categoría que se desactivó mientras tanto, cuenta como sin categoría.
+            datos.put("razon", resultado.razon() != null ? resultado.razon() : ResultadoClasificacion.SIN_CATEGORIA);
+        }
         return json.writeValueAsString(datos);
     }
 }

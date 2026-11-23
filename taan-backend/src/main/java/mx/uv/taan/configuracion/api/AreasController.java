@@ -39,13 +39,13 @@ public class AreasController {
     @ResponseStatus(HttpStatus.CREATED)
     public AreaVista crear(@Valid @RequestBody AreaNuevaSolicitud solicitud, UsuarioActual coordinacion) {
         return areas.crear(coordinacion.organizacionId(), solicitud.nombre(),
-                solicitud.telefonoPublico(), solicitud.correoPublico());
+                solicitud.telefonoPublico(), solicitud.correoPublico(), solicitud.funciones());
     }
 
     @PatchMapping("/{id}")
     public AreaVista actualizar(@PathVariable long id, @Valid @RequestBody AreaActualizacionSolicitud solicitud,
                                 UsuarioActual coordinacion) {
         return areas.actualizar(coordinacion.organizacionId(), id, solicitud.nombre(),
-                solicitud.telefonoPublico(), solicitud.correoPublico(), solicitud.activa());
+                solicitud.telefonoPublico(), solicitud.correoPublico(), solicitud.funciones(), solicitud.activa());
     }
 }

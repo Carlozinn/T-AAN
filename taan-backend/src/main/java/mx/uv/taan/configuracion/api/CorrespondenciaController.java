@@ -3,6 +3,7 @@ package mx.uv.taan.configuracion.api;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +41,11 @@ public class CorrespondenciaController {
                 .map(e -> new ServicioCorrespondencia.Elemento(e.categoriaId(), e.areaId()))
                 .toList();
         return correspondencia.confirmar(coordinacion.organizacionId(), elementos);
+    }
+
+    /** Propuesta de la IA para revisar; no cambia nada hasta el PUT (CU-22 EX-03). */
+    @PostMapping("/propuesta")
+    public List<CorrespondenciaVista> proponer(UsuarioActual coordinacion) {
+        return correspondencia.proponer(coordinacion.organizacionId());
     }
 }

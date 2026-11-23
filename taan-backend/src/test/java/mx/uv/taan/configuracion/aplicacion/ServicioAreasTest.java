@@ -52,10 +52,22 @@ class ServicioAreasTest {
 
     @Test
     void creaElAreaYConvierteLosContactosVaciosEnNulos() {
-        AreaVista area = servicio.crear(ORG, "  Parques y Jardines ", "", null);
+        AreaVista area = servicio.crear(ORG, "  Parques y Jardines ", "", null, " Poda y riego de áreas verdes ");
 
         assertEquals("Parques y Jardines", area.nombre());
         assertNull(area.telefonoPublico());
+        assertEquals("Poda y riego de áreas verdes", area.funciones());
+    }
+
+    @Test
+    void lasFuncionesSeCambianOSeBorranConCadenaVacia() {
+        Area existente = area(7L);
+        existente.cambiarFunciones("Bacheo y banquetas");
+        when(areas.findByIdAndOrganizacionId(7L, ORG)).thenReturn(Optional.of(existente));
+
+        assertEquals("Bacheo y banquetas",
+                servicio.actualizar(ORG, 7L, "Obras", null, null, null, null).funciones());
+        assertNull(servicio.actualizar(ORG, 7L, null, null, null, "", null).funciones());
     }
 
     @Test
@@ -63,7 +75,7 @@ class ServicioAreasTest {
         when(areas.existsByOrganizacionIdAndNombreIgnoreCase(ORG, "Obras Públicas")).thenReturn(true);
 
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
-                () -> servicio.crear(ORG, "Obras Públicas", null, null));
+                () -> servicio.crear(ORG, "Obras Públicas", null, null, null));
 
         assertEquals("NOMBRE_DUPLICADO", error.getCodigo());
     }
@@ -74,7 +86,7 @@ class ServicioAreasTest {
         when(cuentas.hayPersonalActivoEnArea(7L)).thenReturn(true);
 
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
-                () -> servicio.actualizar(ORG, 7L, null, null, null, false));
+                () -> servicio.actualizar(ORG, 7L, null, null, null, null, false));
 
         assertEquals("AREA_CON_PERSONAL", error.getCodigo());
     }
@@ -84,7 +96,7 @@ class ServicioAreasTest {
         when(areas.findByIdAndOrganizacionId(anyLong(), anyLong())).thenReturn(Optional.empty());
 
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
-                () -> servicio.actualizar(ORG, 50L, "Otro", null, null, null));
+                () -> servicio.actualizar(ORG, 50L, "Otro", null, null, null, null));
 
         assertEquals(404, error.getEstadoHttp());
     }

@@ -32,6 +32,9 @@ public class Area {
     @Column(name = "correo_publico")
     private String correoPublico;
 
+    /** Qué atiende el área; la usa la propuesta de correspondencia con IA (CU-22 paso 3). */
+    private String funciones;
+
     @Column(nullable = false)
     private boolean activa = true;
 
@@ -53,6 +56,10 @@ public class Area {
     public void cambiarContacto(String telefonoPublico, String correoPublico) {
         this.telefonoPublico = telefonoPublico;
         this.correoPublico = correoPublico;
+    }
+
+    public void cambiarFunciones(String funciones) {
+        this.funciones = funciones;
     }
 
     /** Desactivar conserva el historial de los reportes que atendió (RF-033). */
@@ -78,6 +85,10 @@ public class Area {
 
     public String getCorreoPublico() {
         return correoPublico;
+    }
+
+    public String getFunciones() {
+        return funciones;
     }
 
     public boolean isActiva() {

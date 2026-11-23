@@ -1893,7 +1893,10 @@ paths:
       - Configuración institucional
       operationId: proponerCorrespondencia
       summary: Pedir a la IA una propuesta categoría → área
-      description: Usa las funciones capturadas de cada área. Si la IA falla, se conserva la plantilla (CU-22 EX-01).
+      description: 'Usa las funciones capturadas de cada área activa. No guarda nada: lo propuesto llega con
+        origen «ia» y solo se activa con PUT /organizacion/correspondencia (CU-22 EX-03). NoProcesable:
+        SIN_FUNCIONES (ninguna área activa tiene funciones) o IA_NO_DISPONIBLE (la IA falló o no está
+        configurada; la correspondencia vigente no cambia, CU-22 EX-01).'
       x-casos-uso:
       - CU-22
       x-requisitos:
@@ -3596,6 +3599,10 @@ components:
         correoPublico:
           type: string
           nullable: true
+        funciones:
+          type: string
+          nullable: true
+          description: Qué atiende el área; la usa la propuesta de correspondencia con IA (CU-22 paso 3).
         activa:
           type: boolean
       required:
@@ -3615,6 +3622,9 @@ components:
         correoPublico:
           type: string
           format: email
+        funciones:
+          type: string
+          maxLength: 1000
       required:
       - nombre
     AreaActualizacion:
@@ -3632,6 +3642,11 @@ components:
           type: string
           format: email
           nullable: true
+        funciones:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: Cadena vacía para borrarlas.
         activa:
           type: boolean
       description: Campos opcionales.

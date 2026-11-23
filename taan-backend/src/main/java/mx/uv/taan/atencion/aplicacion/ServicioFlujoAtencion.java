@@ -1,6 +1,7 @@
 package mx.uv.taan.atencion.aplicacion;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -9,7 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import mx.uv.taan.administracion.aplicacion.CategoriaVista;
+import mx.uv.taan.administracion.aplicacion.OrganizacionResumen;
 import mx.uv.taan.administracion.aplicacion.ServicioCategorias;
+import mx.uv.taan.administracion.aplicacion.ServicioZonas;
+import mx.uv.taan.administracion.dominio.NivelParticipacion;
 import mx.uv.taan.archivos.aplicacion.ArchivoRef;
 import mx.uv.taan.archivos.aplicacion.ServicioArchivos;
 import mx.uv.taan.comun.error.ReglaNegocioException;
@@ -24,7 +28,7 @@ import mx.uv.taan.reportes.dominio.MotivoRechazo;
 import mx.uv.taan.reportes.dominio.Reporte;
 
 /**
- * Flujo de atención del personal (CU-06, CU-07, CU-08, CU-17, CU-18; RF-019 a RF-023).
+ * Flujo de atención del personal (CU-06, CU-07, CU-08, CU-17, CU-18, CU-21; RF-019 a RF-023, RF-037).
  *
  * <p>Cada operación sigue el mismo patrón: bloquear el reporte, comprobar el alcance de quien
  * actúa, aplicar el cambio en la entidad (que valida la transición contra el diagrama de
@@ -46,14 +50,17 @@ public class ServicioFlujoAtencion {
     private final ServicioCategorias categorias;
     private final ServicioAreas areas;
     private final ServicioArchivos archivos;
+    private final ServicioZonas zonas;
 
     public ServicioFlujoAtencion(ServicioExpedientes expedientes, ServicioBandeja bandeja,
-                                 ServicioCategorias categorias, ServicioAreas areas, ServicioArchivos archivos) {
+                                 ServicioCategorias categorias, ServicioAreas areas, ServicioArchivos archivos,
+                                 ServicioZonas zonas) {
         this.expedientes = expedientes;
         this.bandeja = bandeja;
         this.categorias = categorias;
         this.areas = areas;
         this.archivos = archivos;
+        this.zonas = zonas;
     }
 
     /**
@@ -66,15 +73,7 @@ public class ServicioFlujoAtencion {
         if (r.getAreaId() == null && usuario.rol() != Rol.coordinacion) {
             throw new ReglaNegocioException(403, "PROHIBIDO", "Solo la coordinación valida reportes sin área.");
         }
-        HistorialReporte notaCategoria = null;
-        if (categoriaFinalId != null) {
-            CategoriaVista categoria = categorias.buscarActiva(categoriaFinalId)
-                    .orElseThrow(() -> ReglaNegocioException.noProcesable("CATEGORIA_INVALIDA",
-                            "La categoría no existe o está desactivada."));
-            r.corregirCategoria(categoriaFinalId);
-            notaCategoria = HistorialReporte.nota(r.getId(), "clasificacion",
-                    "Categoría final: " + categoria.nombre() + ".", usuario.id());
-        }
+        HistorialReporte notaCategoria = corregirCategoria(usuario, r, categoriaFinalId);
         EstadoReporte anterior = r.getEstado();
         EstadoReporte nuevo = r.validar();
         String texto = nuevo == EstadoReporte.ASIGNADO
@@ -172,6 +171,50 @@ public class ServicioFlujoAtencion {
         return bandeja.armarDetalle(r);
     }
 
+    /** CU-21 paso 2: organizaciones activas con cobertura en la ubicación, sin la del reporte. */
+    @Transactional(readOnly = true)
+    public List<OrganizacionResumen> destinosRedireccion(UsuarioActual usuario, String folio) {
+        return destinos(bandeja.enAlcance(usuario, folio));
+    }
+
+    /**
+     * CU-21: un reporte Recibido pasa a otra organización con cobertura en su ubicación
+     * (Recibido allá, o Canalización externa si es externa). La justificación es interna (EX-01)
+     * y la respuesta ya no trae los datos del ciudadano: el reporte salió del alcance de quien redirige.
+     */
+    @Transactional
+    public ReporteDetalleInstitucional redirigir(UsuarioActual usuario, String folio, long organizacionDestinoId,
+                                                 Long categoriaFinalId, String justificacion) {
+        Reporte r = bloquearEnAlcance(usuario, folio);
+        if (r.getEstado() != EstadoReporte.RECIBIDO) {
+            throw ReglaNegocioException.conflicto("TRANSICION_INVALIDA", "Solo se redirige un reporte Recibido.");
+        }
+        OrganizacionResumen destino = destinos(r).stream()
+                .filter(o -> o.id() == organizacionDestinoId)
+                .findFirst()
+                .orElseThrow(() -> ReglaNegocioException.noProcesable("DESTINO_INVALIDO",
+                        "La organización destino no está activa o no tiene cobertura en la ubicación del reporte."));
+        HistorialReporte notaCategoria = corregirCategoria(usuario, r, categoriaFinalId);
+        long organizacionAnterior = r.getOrganizacionId();
+        Long areaAnterior = r.getAreaId();
+        boolean externa = destino.nivelParticipacion() == NivelParticipacion.externa;
+        r.redirigir(destino.id(), externa);
+        String publico = externa
+                ? "Tu reporte corresponde a " + destino.nombre()
+                        + ", que lo atiende por sus propios canales. Aquí puedes ver cómo contactarla."
+                : "Tu reporte se envió a " + destino.nombre() + ", que es quien lo atiende.";
+        HistorialReporte cambio = HistorialReporte.redireccion(r.getId(), r.getEstado(), organizacionAnterior,
+                destino.id(), areaAnterior, publico, usuario.id());
+        HistorialReporte nota = HistorialReporte.nota(r.getId(), "justificacion_redireccion", justificacion.strip(),
+                usuario.id());
+        if (notaCategoria != null) {
+            expedientes.registrar(notaCategoria, cambio, nota);
+        } else {
+            expedientes.registrar(cambio, nota);
+        }
+        return bandeja.armarDetalle(r, false);
+    }
+
     /** CU-08: Asignado o Reabierto → En atención. */
     @Transactional
     public ReporteDetalleInstitucional iniciarAtencion(UsuarioActual usuario, String folio) {
@@ -216,6 +259,25 @@ public class ServicioFlujoAtencion {
             throw ReglaNegocioException.noEncontrado();
         }
         return r;
+    }
+
+    private List<OrganizacionResumen> destinos(Reporte r) {
+        return zonas.organizacionesConCobertura(r.getLatitud(), r.getLongitud()).stream()
+                .filter(o -> !Objects.equals(o.id(), r.getOrganizacionId()))
+                .toList();
+    }
+
+    /** CU-06 FA-01 y CU-21 paso 3: confirma o corrige la categoría; devuelve la nota interna o null. */
+    private HistorialReporte corregirCategoria(UsuarioActual usuario, Reporte r, Long categoriaFinalId) {
+        if (categoriaFinalId == null) {
+            return null;
+        }
+        CategoriaVista categoria = categorias.buscarActiva(categoriaFinalId)
+                .orElseThrow(() -> ReglaNegocioException.noProcesable("CATEGORIA_INVALIDA",
+                        "La categoría no existe o está desactivada."));
+        r.corregirCategoria(categoriaFinalId);
+        return HistorialReporte.nota(r.getId(), "clasificacion", "Categoría final: " + categoria.nombre() + ".",
+                usuario.id());
     }
 
     private String nombreArea(Long areaId) {

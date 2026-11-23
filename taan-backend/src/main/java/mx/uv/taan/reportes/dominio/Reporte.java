@@ -1,5 +1,6 @@
 package mx.uv.taan.reportes.dominio;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import org.hibernate.annotations.ColumnTransformer;
@@ -20,6 +21,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import mx.uv.taan.comun.error.ReglaNegocioException;
 
 /**
  * Reporte ciudadano, núcleo del sistema (tabla reporte). Todo cambio de estado pasa por
@@ -210,6 +212,45 @@ public class Reporte {
     public void resolver() {
         cambiarEstado(EstadoReporte.RESUELTO);
         this.fechaResolucion = Instant.now();
+    }
+
+    /**
+     * CU-21: Recibido → Recibido en otra organización, o → Canalización externa si es externa.
+     * El área de la organización anterior ya no aplica, y el semáforo se reinicia aunque el
+     * estado no cambie: el reporte llega nuevo a otra bandeja.
+     */
+    public void redirigir(long organizacionDestinoId, boolean destinoExterno) {
+        EstadoReporte destino = destinoExterno ? EstadoReporte.CANALIZACION_EXTERNA : EstadoReporte.RECIBIDO;
+        // Pendiente → Canalización externa existe, pero la decide el sistema, no el personal.
+        if (estado != EstadoReporte.RECIBIDO) {
+            throw new TransicionInvalidaException(estado, destino);
+        }
+        cambiarEstado(destino);
+        this.organizacionId = organizacionDestinoId;
+        this.areaId = null;
+        this.motivoCanalizacion = MotivoCanalizacion.redireccion;
+        this.fechaUltimoEstado = Instant.now();
+    }
+
+    /** Fin del plazo de reapertura (RF-042); null si el reporte no se ha resuelto. */
+    public Instant venceReapertura(int plazoDias) {
+        return fechaResolucion == null ? null : fechaResolucion.plus(Duration.ofDays(plazoDias));
+    }
+
+    /** CU-23: Resuelto → Reabierto, una sola vez y dentro del plazo; vuelve a la misma área. */
+    public void reabrir(int plazoDias, Instant ahora) {
+        estado.validarTransicion(EstadoReporte.REABIERTO);
+        if (reabierto) {
+            throw ReglaNegocioException.conflicto("YA_REABIERTO",
+                    "Este reporte ya se reabrió una vez. Si el problema continúa, registra un reporte nuevo.");
+        }
+        Instant vence = venceReapertura(plazoDias);
+        if (vence == null || !ahora.isBefore(vence)) {
+            throw ReglaNegocioException.noProcesable("PLAZO_VENCIDO",
+                    "El plazo para reabrir este reporte venció. Si el problema continúa, registra un reporte nuevo.");
+        }
+        cambiarEstado(EstadoReporte.REABIERTO);
+        this.reabierto = true;
     }
 
     /**

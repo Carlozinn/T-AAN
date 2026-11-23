@@ -18,10 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
+import mx.uv.taan.administracion.aplicacion.OrganizacionResumen;
 import mx.uv.taan.archivos.aplicacion.ArchivoRef;
 import mx.uv.taan.atencion.api.dto.AsignacionSolicitud;
 import mx.uv.taan.atencion.api.dto.MarcaDuplicadoSolicitud;
 import mx.uv.taan.atencion.api.dto.RechazoSolicitud;
+import mx.uv.taan.atencion.api.dto.RedireccionSolicitud;
 import mx.uv.taan.atencion.api.dto.ResolucionSolicitud;
 import mx.uv.taan.atencion.api.dto.ValidacionSolicitud;
 import mx.uv.taan.atencion.aplicacion.EventoHistorial;
@@ -33,7 +35,7 @@ import mx.uv.taan.comun.api.Pagina;
 import mx.uv.taan.cuentas.aplicacion.UsuarioActual;
 
 /**
- * Atención institucional (CU-05 a CU-09, CU-17, CU-18; roles personal_area y coordinacion).
+ * Atención institucional (CU-05 a CU-09, CU-17, CU-18, CU-21; roles personal_area y coordinacion).
  * El alcance de cada usuario (su área o su organización) lo aplican los servicios.
  */
 @RestController
@@ -108,6 +110,17 @@ public class ReportesInstitucionalesController {
     public ReporteDetalleInstitucional resolver(@PathVariable String folio, @Valid @RequestBody ResolucionSolicitud s,
                                                 UsuarioActual usuario) {
         return flujo.resolver(usuario, folio, s.observacionCierre());
+    }
+
+    @GetMapping("/{folio}/organizaciones-redireccion")
+    public List<OrganizacionResumen> destinosRedireccion(@PathVariable String folio, UsuarioActual usuario) {
+        return flujo.destinosRedireccion(usuario, folio);
+    }
+
+    @PostMapping("/{folio}/redireccion")
+    public ReporteDetalleInstitucional redirigir(@PathVariable String folio, @Valid @RequestBody RedireccionSolicitud s,
+                                                 UsuarioActual usuario) {
+        return flujo.redirigir(usuario, folio, s.organizacionDestinoId(), s.categoriaFinalId(), s.justificacion());
     }
 
     @PostMapping(path = "/{folio}/evidencias", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

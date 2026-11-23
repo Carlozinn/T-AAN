@@ -13,4 +13,6 @@ public interface HistorialReporteRepository extends JpaRepository<HistorialRepor
 
     /** Historial completo para el personal (CU-09), incluidas las notas internas. */
     List<HistorialReporte> findByReporteIdOrderByCreadoEnAscIdAsc(Long reporteId);
+
+    boolean existsByReporteIdAndAccion(Long reporteId, String accion);
 }

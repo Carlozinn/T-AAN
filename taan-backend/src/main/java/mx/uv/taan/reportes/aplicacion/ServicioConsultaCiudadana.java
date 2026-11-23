@@ -1,6 +1,5 @@
 package mx.uv.taan.reportes.aplicacion;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,7 @@ import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.configuracion.aplicacion.AreaVista;
 import mx.uv.taan.configuracion.aplicacion.ServicioAreas;
 import mx.uv.taan.reportes.dominio.EstadoReporte;
+import mx.uv.taan.reportes.dominio.HistorialReporte;
 import mx.uv.taan.reportes.dominio.Reporte;
 import mx.uv.taan.reportes.infraestructura.HistorialReporteRepository;
 import mx.uv.taan.reportes.infraestructura.ReporteRepository;
@@ -35,6 +35,8 @@ import mx.uv.taan.reportes.infraestructura.ReporteRepository;
 public class ServicioConsultaCiudadana {
 
     private static final int TAMANO_MAXIMO = 100;
+    /** Valor sugerido por RF-042; solo se usa si no se encuentra la organización. */
+    private static final int PLAZO_REAPERTURA_POR_DEFECTO = 15;
 
     private final ReporteRepository reportes;
     private final HistorialReporteRepository historial;
@@ -106,14 +108,24 @@ public class ServicioConsultaCiudadana {
         return reportes.existsByIdAndCiudadanoId(reporteId, ciudadanoId);
     }
 
+    /** Plazo de reapertura de la organización responsable (RF-042). */
+    int plazoReapertura(Optional<OrganizacionVista> organizacion) {
+        return organizacion.map(OrganizacionVista::plazoReaperturaDias).orElse(PLAZO_REAPERTURA_POR_DEFECTO);
+    }
+
+    /** Si el ciudadano confirmó la resolución, ya no puede reabrir el reporte (CU-23 FA-01). */
+    boolean confirmado(long reporteId) {
+        return historial.existsByReporteIdAndAccion(reporteId, HistorialReporte.ACCION_CONFIRMACION);
+    }
+
     /** Resuelto: puede reabrirse una sola vez dentro del plazo de su organización (RF-042). */
-    private static ReporteDetalleCiudadano.Reapertura reapertura(Reporte r, Optional<OrganizacionVista> organizacion) {
-        if (r.getEstado() != EstadoReporte.RESUELTO || r.getFechaResolucion() == null) {
+    private ReporteDetalleCiudadano.Reapertura reapertura(Reporte r, Optional<OrganizacionVista> organizacion) {
+        Instant vence = r.venceReapertura(plazoReapertura(organizacion));
+        if (r.getEstado() != EstadoReporte.RESUELTO || vence == null) {
             return null;
         }
-        int plazo = organizacion.map(OrganizacionVista::plazoReaperturaDias).orElse(15);
-        Instant vence = r.getFechaResolucion().plus(Duration.ofDays(plazo));
-        return new ReporteDetalleCiudadano.Reapertura(!r.isReabierto() && Instant.now().isBefore(vence), vence);
+        boolean permitida = !r.isReabierto() && Instant.now().isBefore(vence) && !confirmado(r.getId());
+        return new ReporteDetalleCiudadano.Reapertura(permitida, vence);
     }
 
     private List<EventoPublico> eventos(long reporteId) {

@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import mx.uv.taan.administracion.dominio.NivelParticipacion;
 import mx.uv.taan.administracion.dominio.Organizacion;
 import mx.uv.taan.administracion.infraestructura.OrganizacionRepository;
 import mx.uv.taan.administracion.infraestructura.ReglaRepository;
@@ -107,6 +108,14 @@ public class ServicioZonas {
         return zonas.zonaQueContiene(latitud, longitud)
                 .map(nombre -> new CoberturaVista(true, nombre))
                 .orElseGet(() -> new CoberturaVista(false, null));
+    }
+
+    /** Organizaciones activas con cobertura en el punto, a las que puede redirigirse un reporte (CU-21). */
+    @Transactional(readOnly = true)
+    public List<OrganizacionResumen> organizacionesConCobertura(double latitud, double longitud) {
+        return zonas.organizacionesActivasConCobertura(latitud, longitud).stream()
+                .map(f -> new OrganizacionResumen(f.id(), f.nombre(), NivelParticipacion.valueOf(f.nivel())))
+                .toList();
     }
 
     private ZonaVista consultar(long id) {

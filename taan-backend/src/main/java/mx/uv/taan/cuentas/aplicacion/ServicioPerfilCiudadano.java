@@ -1,5 +1,8 @@
 package mx.uv.taan.cuentas.aplicacion;
 
+import java.time.Instant;
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,9 +42,19 @@ public class ServicioPerfilCiudadano {
     public CondicionCiudadano condicionParaReportar(long ciudadanoId) {
         Ciudadano cuenta = buscar(ciudadanoId);
         boolean suspendida = cuenta.getEstado() == EstadoCuenta.suspendida
-                && (cuenta.getSuspendidaHasta() == null || cuenta.getSuspendidaHasta().isAfter(java.time.Instant.now()));
+                && (cuenta.getSuspendidaHasta() == null || cuenta.getSuspendidaHasta().isAfter(Instant.now()));
         return new CondicionCiudadano(cuenta.isCorreoVerificado(), cuenta.requiereTelefono(), suspendida,
                 cuenta.getMotivoSuspension(), cuenta.getSuspendidaHasta());
+    }
+
+    /**
+     * Nombre y teléfono descifrado para el personal de la organización responsable del reporte
+     * (RF-038). Vacío si la cuenta se eliminó: el reporte queda desvinculado.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ContactoCiudadano> contacto(long ciudadanoId) {
+        return ciudadanos.findById(ciudadanoId).map(c -> new ContactoCiudadano(c.getNombre(),
+                c.getTelefonoCifrado() == null ? null : cifrador.descifrar(c.getTelefonoCifrado())));
     }
 
     /** Solo cambia los campos enviados (null = sin cambio), como indica el contrato. */

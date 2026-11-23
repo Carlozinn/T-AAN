@@ -10,4 +10,7 @@ import mx.uv.taan.reportes.dominio.HistorialReporte;
 public interface HistorialReporteRepository extends JpaRepository<HistorialReporte, Long> {
 
     List<HistorialReporte> findByReporteIdAndVisibleCiudadanoTrueOrderByCreadoEnAscIdAsc(Long reporteId);
+
+    /** Historial completo para el personal (CU-09), incluidas las notas internas. */
+    List<HistorialReporte> findByReporteIdOrderByCreadoEnAscIdAsc(Long reporteId);
 }

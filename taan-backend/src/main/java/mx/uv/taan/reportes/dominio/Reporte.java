@@ -144,14 +144,85 @@ public class Reporte {
      */
     public void canalizar(Long categoriaSugeridaId, boolean posibleContenidoNoValido, long organizacionId,
                           Long areaId, MotivoCanalizacion motivo, EstadoReporte destino) {
-        estado.validarTransicion(destino);
+        cambiarEstado(destino);
         this.categoriaSugeridaId = categoriaSugeridaId;
         this.posibleContenidoNoValido = posibleContenidoNoValido;
         this.organizacionId = organizacionId;
         this.areaId = areaId;
         this.motivoCanalizacion = motivo;
+    }
+
+    // ------------------------------------------------------------------ atención institucional
+
+    /** CU-06 FA-01: el personal confirma o corrige la categoría propuesta por la IA. */
+    public void corregirCategoria(long categoriaFinalId) {
+        this.categoriaFinalId = categoriaFinalId;
+    }
+
+    /**
+     * CU-06: si una regla ya determinó el área, queda Asignado sin pasar por CU-07 (FA-04);
+     * si no, queda Validado y la coordinación lo asigna después.
+     *
+     * @return el estado en que quedó
+     */
+    public EstadoReporte validar() {
+        EstadoReporte destino = areaId != null ? EstadoReporte.ASIGNADO : EstadoReporte.VALIDADO;
+        // Solo se valida lo recién recibido: Asignado → Asignado existe, pero es una reasignación.
+        if (estado != EstadoReporte.RECIBIDO) {
+            throw new TransicionInvalidaException(estado, destino);
+        }
+        cambiarEstado(destino);
+        return destino;
+    }
+
+    /** CU-06: rechazo con motivo público del catálogo y texto opcional para el ciudadano. */
+    public void rechazar(MotivoRechazo motivo, String textoPublico) {
+        cambiarEstado(EstadoReporte.RECHAZADO);
+        this.motivoRechazo = motivo;
+        this.textoRechazoPublico = textoPublico;
+    }
+
+    /** CU-06 FA-02: el ciudadano seguirá el avance del reporte principal. */
+    public void marcarDuplicado(long reportePrincipalId) {
+        if (id != null && id == reportePrincipalId) {
+            throw new IllegalArgumentException("Un reporte no puede ser duplicado de sí mismo.");
+        }
+        cambiarEstado(EstadoReporte.DUPLICADO);
+        this.reportePrincipalId = reportePrincipalId;
+    }
+
+    /** CU-07: asignación (Validado → Asignado) o reasignación (Asignado → Asignado). */
+    public void asignar(long nuevaAreaId) {
+        // Recibido → Asignado existe, pero solo al validar con área de regla (CU-06 FA-04).
+        if (estado != EstadoReporte.VALIDADO && estado != EstadoReporte.ASIGNADO) {
+            throw new TransicionInvalidaException(estado, EstadoReporte.ASIGNADO);
+        }
+        cambiarEstado(EstadoReporte.ASIGNADO);
+        this.areaId = nuevaAreaId;
+    }
+
+    /** CU-08: Asignado o Reabierto → En atención. */
+    public void iniciarAtencion() {
+        cambiarEstado(EstadoReporte.EN_ATENCION);
+    }
+
+    /** CU-17: En atención → Resuelto; desde aquí corre el plazo de reapertura (RF-042). */
+    public void resolver() {
+        cambiarEstado(EstadoReporte.RESUELTO);
+        this.fechaResolucion = Instant.now();
+    }
+
+    /**
+     * Único punto donde cambia el estado: valida la transición contra el diagrama (Anexo G).
+     * fecha_ultimo_estado solo se reinicia si el estado cambia de verdad; una reasignación
+     * (Asignado → Asignado) no reinicia el semáforo, para no ocultar un retraso.
+     */
+    private void cambiarEstado(EstadoReporte destino) {
+        estado.validarTransicion(destino);
+        if (destino != estado) {
+            this.fechaUltimoEstado = Instant.now();
+        }
         this.estado = destino;
-        this.fechaUltimoEstado = Instant.now();
     }
 
     @PreUpdate

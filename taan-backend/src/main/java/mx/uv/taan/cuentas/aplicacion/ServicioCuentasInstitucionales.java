@@ -1,7 +1,10 @@
 package mx.uv.taan.cuentas.aplicacion;
 
 import java.security.SecureRandom;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -50,6 +53,13 @@ public class ServicioCuentasInstitucionales {
         return usuarios.findByOrganizacionIdOrderByNombre(organizacionId).stream()
                 .map(UsuarioInstitucional::de)
                 .toList();
+    }
+
+    /** Nombres del personal por id (para mostrar quién hizo cada cambio del historial). */
+    @Transactional(readOnly = true)
+    public Map<Long, String> nombres(Collection<Long> ids) {
+        return usuarios.findAllById(ids).stream()
+                .collect(Collectors.toMap(Usuario::getId, Usuario::getNombre));
     }
 
     /** true si alguna cuenta activa trabaja en el área (impide desactivarla sin reasignar antes). */

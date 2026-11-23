@@ -99,8 +99,47 @@ public class HistorialReporte {
         return evento;
     }
 
+    /**
+     * Cambio de estado hecho por el personal (CU-06, CU-07, CU-08, CU-17). textoPublico es lo
+     * que lee el ciudadano en su historial; lo interno va aparte, con {@link #nota}.
+     */
+    public static HistorialReporte cambioPorPersonal(long reporteId, EstadoReporte anterior, EstadoReporte nuevo,
+                                                     String accion, String textoPublico, long usuarioId) {
+        HistorialReporte evento = new HistorialReporte(reporteId, anterior, nuevo, accion, textoPublico, true);
+        evento.usuarioId = usuarioId;
+        return evento;
+    }
+
+    /** Igual que {@link #cambioPorPersonal}, registrando además el área anterior y la nueva. */
+    public static HistorialReporte cambioDeArea(long reporteId, EstadoReporte anterior, String accion,
+                                                Long areaAnterior, long areaNueva, String textoPublico, long usuarioId) {
+        HistorialReporte evento = cambioPorPersonal(reporteId, anterior, EstadoReporte.ASIGNADO, accion,
+                textoPublico, usuarioId);
+        evento.areaAnteriorId = areaAnterior;
+        evento.areaNuevaId = areaNueva;
+        return evento;
+    }
+
+    /**
+     * Nota interna sin cambio de estado (justificación de un rechazo o reasignación, corrección
+     * de categoría, observaciones de un duplicado). Nunca la ve el ciudadano.
+     */
+    public static HistorialReporte nota(long reporteId, String accion, String texto, long usuarioId) {
+        HistorialReporte evento = new HistorialReporte(reporteId, null, null, accion, texto, false);
+        evento.usuarioId = usuarioId;
+        return evento;
+    }
+
     public Long getId() {
         return id;
+    }
+
+    public Long getOrganizacionAnteriorId() {
+        return organizacionAnteriorId;
+    }
+
+    public Long getAreaAnteriorId() {
+        return areaAnteriorId;
     }
 
     public Long getReporteId() {

@@ -1,6 +1,7 @@
 package mx.uv.taan.administracion.aplicacion;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,12 @@ public class ServicioCategorias {
     @Transactional(readOnly = true)
     public List<CategoriaVista> listarActivas() {
         return categorias.findByActivaTrueOrderByNombre().stream().map(CategoriaVista::de).toList();
+    }
+
+    /** Una categoría activa por id (para confirmar o corregir la clasificación, CU-06). */
+    @Transactional(readOnly = true)
+    public Optional<CategoriaVista> buscarActiva(long id) {
+        return categorias.findById(id).filter(Categoria::isActiva).map(CategoriaVista::de);
     }
 
     @Transactional

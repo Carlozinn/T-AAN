@@ -1,6 +1,7 @@
 package mx.uv.taan.reportes.infraestructura;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +30,17 @@ public interface ReporteRepository extends JpaRepository<Reporte, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Reporte r WHERE r.id = :id")
     Optional<Reporte> bloquear(Long id);
+
+    /** Igual que {@link #bloquear}, por folio: dos personas no pueden cambiar el mismo reporte a la vez. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Reporte r WHERE r.folio = :folio")
+    Optional<Reporte> bloquearPorFolio(String folio);
+
+    Optional<Reporte> findByFolio(String folio);
+
+    /** «Reportado por N personas» (RF-019): reportes que apuntan a cada principal. */
+    @Query("SELECT r.reportePrincipalId, count(r) FROM Reporte r WHERE r.reportePrincipalId IN :ids GROUP BY r.reportePrincipalId")
+    List<Object[]> contarDuplicados(Collection<Long> ids);
 
     /**
      * Pendientes de canalización creados antes de cierto momento (para reintentarlos). Es SQL

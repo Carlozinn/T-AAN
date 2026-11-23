@@ -731,8 +731,9 @@ paths:
       - Reportes ciudadanos
       operationId: reabrirReporte
       summary: Reabrir un reporte resuelto
-      description: 'Transición Resuelto → Reabierto. Conflicto: YA_REABIERTO o TRANSICION_INVALIDA. NoProcesable:
-        PLAZO_VENCIDO.'
+      description: 'Transición Resuelto → Reabierto, en la misma área. Conflicto: YA_REABIERTO,
+        YA_CONFIRMADO (el ciudadano ya confirmó la resolución) o TRANSICION_INVALIDA. NoProcesable:
+        PLAZO_VENCIDO. Prohibido: CUENTA_SUSPENDIDA.'
       x-casos-uso:
       - CU-23
       x-requisitos:
@@ -773,7 +774,9 @@ paths:
       - Reportes ciudadanos
       operationId: confirmarResolucion
       summary: Confirmar que el problema se resolvió
-      description: Registra la confirmación (CU-23 FA-01); el reporte permanece Resuelto.
+      description: 'Registra la confirmación en el historial (CU-23 FA-01); el reporte permanece Resuelto
+        y ya no puede reabrirse. Conflicto: TRANSICION_INVALIDA (no está Resuelto) o YA_CONFIRMADO.
+        Prohibido: CUENTA_SUSPENDIDA.'
       x-casos-uso:
       - CU-23
       x-requisitos:
@@ -1202,7 +1205,8 @@ paths:
       - Atención institucional
       operationId: listarDestinosRedireccion
       summary: Organizaciones a las que se puede redirigir
-      description: Organizaciones activas con cobertura en la ubicación del reporte.
+      description: Organizaciones activas con cobertura en la ubicación del reporte, sin la organización
+        actual del reporte.
       x-casos-uso:
       - CU-21
       x-requisitos:
@@ -1234,7 +1238,10 @@ paths:
       - Atención institucional
       operationId: redirigirReporte
       summary: Redirigir a otra organización
-      description: Recibido → Recibido en la organización destino, o → Canalización externa si es externa.
+      description: 'Recibido → Recibido en la organización destino, o → Canalización externa si es externa.
+        La justificación queda como nota interna. La respuesta no incluye ciudadano: el reporte ya no
+        pertenece a la organización de quien redirige (RF-038). Conflicto: TRANSICION_INVALIDA. NoProcesable:
+        DESTINO_INVALIDO (inactiva, sin cobertura o la misma organización), CATEGORIA_INVALIDA.'
       x-casos-uso:
       - CU-21
       x-requisitos:
@@ -1782,6 +1789,10 @@ paths:
       - Configuración institucional
       operationId: configurarSemaforo
       summary: Configurar los tiempos objetivo
+      description: 'La lista reemplaza toda la configuración de la organización; un estado que no se envíe
+        queda sin semáforo (sin_tiempo). Solo se configuran recibido, validado, asignado, en_atencion y
+        reabierto. Invalido: ESTADO_NO_CONFIGURABLE, ESTADO_REPETIDO o VALIDACION (horasRojo debe ser mayor
+        que horasAmarillo).'
       x-casos-uso:
       - CU-05
       x-requisitos:
@@ -3344,6 +3355,11 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/ArchivoRef'
+          evidenciasAtencion:
+            type: array
+            items:
+              $ref: '#/components/schemas/ArchivoRef'
+            description: Evidencia que adjunta el personal (CU-18), separada de las fotos del ciudadano (RF-023).
           ciudadano:
             type: object
             properties:
@@ -3351,7 +3367,8 @@ components:
                 type: string
               telefono:
                 $ref: '#/components/schemas/Telefono'
-            description: Solo para personal de la organización responsable (RF-038); null si la cuenta fue eliminada.
+            description: Solo para personal de la organización responsable (RF-038); null si la cuenta fue
+              eliminada o en la respuesta de una redirección.
             nullable: true
           categoriaSugerida:
             type: string
@@ -3437,6 +3454,11 @@ components:
         organizacionDestinoId:
           type: integer
           format: int64
+        categoriaFinalId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Confirma o corrige la categoría, igual que en la validación (CU-21 paso 3).
         justificacion:
           type: string
           minLength: 10

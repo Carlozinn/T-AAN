@@ -1,13 +1,17 @@
 package mx.uv.taan.atencion.aplicacion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import mx.uv.taan.administracion.aplicacion.OrganizacionResumen;
 import mx.uv.taan.administracion.aplicacion.ServicioCategorias;
+import mx.uv.taan.administracion.aplicacion.ServicioZonas;
+import mx.uv.taan.administracion.dominio.NivelParticipacion;
 import mx.uv.taan.archivos.aplicacion.ServicioArchivos;
 import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.configuracion.aplicacion.ServicioAreas;
@@ -36,6 +43,8 @@ class ServicioFlujoAtencionTest {
 
     private ServicioExpedientes expedientes;
     private ServicioAreas areas;
+    private ServicioZonas zonas;
+    private ServicioBandeja bandeja;
     private ServicioFlujoAtencion servicio;
 
     private final UsuarioActual coordinacion = new UsuarioActual(2L, Rol.coordinacion, ORG, null);
@@ -47,9 +56,85 @@ class ServicioFlujoAtencionTest {
     void preparar() {
         expedientes = mock(ServicioExpedientes.class);
         areas = mock(ServicioAreas.class);
-        ServicioBandeja bandeja = mock(ServicioBandeja.class);
+        zonas = mock(ServicioZonas.class);
+        bandeja = mock(ServicioBandeja.class);
         servicio = new ServicioFlujoAtencion(expedientes, bandeja, mock(ServicioCategorias.class), areas,
-                mock(ServicioArchivos.class));
+                mock(ServicioArchivos.class), zonas);
+        when(zonas.organizacionesConCobertura(anyDouble(), anyDouble())).thenReturn(List.of(
+                new OrganizacionResumen(ORG, "Ayuntamiento", NivelParticipacion.integrada),
+                new OrganizacionResumen(2L, "Gobierno del Estado", NivelParticipacion.integrada),
+                new OrganizacionResumen(3L, "CFE", NivelParticipacion.externa)));
+    }
+
+    @Test
+    void losDestinosDeRedireccionNoIncluyenALaOrganizacionActual() {
+        Reporte r = reporte("TAAN-2026-000001", OBRAS);
+        when(bandeja.enAlcance(coordinacion, r.getFolio())).thenReturn(r);
+
+        List<OrganizacionResumen> destinos = servicio.destinosRedireccion(coordinacion, r.getFolio());
+
+        assertEquals(List.of(2L, 3L), destinos.stream().map(OrganizacionResumen::id).toList());
+    }
+
+    @Test
+    void laRedireccionPasaElReporteAOtraOrganizacionConJustificacionInterna() {
+        Reporte r = dado(reporte("TAAN-2026-000001", OBRAS));
+
+        servicio.redirigir(personalObras, r.getFolio(), 2L, null, "Es una carretera estatal, no municipal.");
+
+        assertEquals(EstadoReporte.RECIBIDO, r.getEstado());
+        assertEquals(2L, r.getOrganizacionId());
+        ArgumentCaptor<HistorialReporte> eventos = ArgumentCaptor.forClass(HistorialReporte.class);
+        verify(expedientes).registrar(eventos.capture(), eventos.capture());
+        HistorialReporte cambio = eventos.getAllValues().get(0);
+        assertEquals("redireccion", cambio.getAccion());
+        assertEquals(ORG, cambio.getOrganizacionAnteriorId());
+        assertEquals(2L, cambio.getOrganizacionNuevaId());
+        assertTrue(cambio.isVisibleCiudadano());
+        assertFalse(eventos.getAllValues().get(1).isVisibleCiudadano());
+        verify(bandeja).armarDetalle(r, false);
+    }
+
+    @Test
+    void redirigirAUnaOrganizacionExternaLaDejaEnCanalizacionExterna() {
+        Reporte r = dado(reporte("TAAN-2026-000001", OBRAS));
+
+        servicio.redirigir(coordinacion, r.getFolio(), 3L, null, "La luminaria es de la red de CFE.");
+
+        assertEquals(EstadoReporte.CANALIZACION_EXTERNA, r.getEstado());
+    }
+
+    @Test
+    void noSeRedirigeAUnaOrganizacionSinCobertura() {
+        Reporte r = dado(reporte("TAAN-2026-000001", OBRAS));
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> servicio.redirigir(coordinacion, r.getFolio(), 99L, null, "No nos corresponde atenderlo."));
+
+        assertEquals("DESTINO_INVALIDO", error.getCodigo());
+        assertEquals(ORG, r.getOrganizacionId());
+    }
+
+    @Test
+    void noSeRedirigeALaMismaOrganizacion() {
+        Reporte r = dado(reporte("TAAN-2026-000001", OBRAS));
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> servicio.redirigir(coordinacion, r.getFolio(), ORG, null, "No nos corresponde atenderlo."));
+
+        assertEquals("DESTINO_INVALIDO", error.getCodigo());
+    }
+
+    @Test
+    void soloSeRedirigeUnReporteRecibido() {
+        Reporte r = dado(reporte("TAAN-2026-000001", OBRAS));
+        r.validar();
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> servicio.redirigir(personalObras, r.getFolio(), 2L, null, "No nos corresponde atenderlo."));
+
+        assertEquals("TRANSICION_INVALIDA", error.getCodigo());
+        verify(expedientes, never()).registrar(any(HistorialReporte.class), any(HistorialReporte.class));
     }
 
     @Test

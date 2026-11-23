@@ -12,8 +12,8 @@ import mx.uv.taan.reportes.dominio.MotivoCanalizacion;
  * Esquema ReporteDetalleInstitucional del contrato (CU-05, CU-09).
  *
  * <p>ciudadano (nombre y teléfono) solo llega al personal de la organización responsable
- * (RF-038) y es null si la cuenta se eliminó. evidenciasAtencion no está en el contrato:
- * son las fotos que sube el personal (CU-18), separadas de las del ciudadano (RF-023, punto 2).</p>
+ * (RF-038): es null si la cuenta se eliminó o tras una redirección. evidenciasAtencion son las
+ * fotos que sube el personal (CU-18), separadas de las del ciudadano (RF-023, punto 2).</p>
  */
 public record ReporteDetalleInstitucional(
         String folio,

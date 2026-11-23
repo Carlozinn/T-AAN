@@ -9,6 +9,4 @@ public class TaanBackendApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(TaanBackendApplication.class, args);
 	}
-
 }
-	

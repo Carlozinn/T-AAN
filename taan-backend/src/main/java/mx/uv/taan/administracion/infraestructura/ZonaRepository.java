@@ -144,6 +144,26 @@ public class ZonaRepository {
                 .stream().findFirst();
     }
 
+    /** Organización activa con cobertura; nivel es el valor de nivel_participacion. */
+    public record FilaOrganizacion(long id, String nombre, String nivel) {
+    }
+
+    /**
+     * Organizaciones activas con cobertura en cualquier zona activa que contenga el punto: los
+     * destinos posibles de una redirección (CU-21, RF-037).
+     */
+    public List<FilaOrganizacion> organizacionesActivasConCobertura(double latitud, double longitud) {
+        return jdbc.query("""
+                SELECT DISTINCT o.id, o.nombre, o.nivel_participacion::text AS nivel
+                FROM zona_cobertura z
+                JOIN zona_organizacion zo ON zo.zona_id = z.id
+                JOIN organizacion o ON o.id = zo.organizacion_id
+                WHERE z.activa AND o.activa AND ST_Contains(z.geometria, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+                ORDER BY o.nombre""",
+                (rs, n) -> new FilaOrganizacion(rs.getLong("id"), rs.getString("nombre"), rs.getString("nivel")),
+                longitud, latitud);
+    }
+
     /**
      * Nombre de la zona activa que contiene el punto. Si hay zonas superpuestas se toma la de
      * menor superficie, por ser la más específica (CU-15 FA-01).

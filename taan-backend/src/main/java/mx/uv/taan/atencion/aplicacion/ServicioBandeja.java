@@ -115,10 +115,18 @@ public class ServicioBandeja {
      * cambio, el flujo de atención dentro de su transacción.
      */
     ReporteDetalleInstitucional armarDetalle(Reporte r) {
+        return armarDetalle(r, true);
+    }
+
+    /**
+     * conCiudadano = false tras una redirección: quien redirigió ya no es de la organización
+     * responsable y no debe ver el nombre ni el teléfono del ciudadano (RF-038).
+     */
+    ReporteDetalleInstitucional armarDetalle(Reporte r, boolean conCiudadano) {
         Contexto contexto = contexto(r.getOrganizacionId());
         long duplicados = expedientes.contarDuplicados(List.of(r.getId())).getOrDefault(r.getId(), 0L);
         ReporteResumenInstitucional resumen = resumen(r, contexto, duplicados);
-        ContactoCiudadano ciudadano = r.getCiudadanoId() == null ? null
+        ContactoCiudadano ciudadano = !conCiudadano || r.getCiudadanoId() == null ? null
                 : perfiles.contacto(r.getCiudadanoId()).orElse(null);
         String principal = r.getReportePrincipalId() == null ? null
                 : expedientes.porId(r.getReportePrincipalId()).map(Reporte::getFolio).orElse(null);

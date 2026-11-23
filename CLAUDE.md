@@ -11,3 +11,13 @@
 - Nunca poner secretos (JWT, contraseñas, claves de cifrado) en archivos del repo.
 
 > La arquitectura y los incrementos vienen del documento maestro (`docs/Documento_Maestro_TAAN.docx`) y del contrato `docs/TAAN_API.yaml`.
+
+## Convenciones del backend
+
+- Los módulos acceden a los reportes de otro módulo solo por `ServicioExpedientes` (módulo reportes).
+- Las transiciones de estado se hacen en la entidad `Reporte` y se validan con `EstadoReporte.validarTransicion` (409 `TRANSICION_INVALIDA`).
+- Cada cambio bloquea el reporte con `bloquearPorFolio`, registra un evento público en el historial y, si hay justificación, una nota interna con `visible_ciudadano=false`.
+- Alcance: personal de área ve solo su área; coordinación toda su organización; fuera de alcance responde 404.
+- Errores con `ReglaNegocioException` y formato `ApiError` (código, mensaje, detalles).
+- Valores de enums en minúsculas en la API.
+- Documentos de referencia en `docs/`: `TAAN_API.yaml` (contrato), `Estados_TAAN.puml` (estados) y el documento maestro (`Documento_Maestro_TAAN.docx`).

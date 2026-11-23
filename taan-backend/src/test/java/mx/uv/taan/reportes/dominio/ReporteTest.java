@@ -2,12 +2,17 @@ package mx.uv.taan.reportes.dominio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import mx.uv.taan.comun.error.ReglaNegocioException;
 
 /** Transiciones del personal sobre la entidad: la entidad no permite saltarse el diagrama (Anexo G). */
 class ReporteTest {
@@ -88,6 +93,87 @@ class ReporteTest {
         Reporte r = recibido(4L);
 
         assertThrows(IllegalArgumentException.class, () -> r.marcarDuplicado(100L));
+    }
+
+    @Test
+    void laRedireccionCambiaDeOrganizacionYReiniciaElSemaforo() {
+        Reporte r = recibido(4L);
+        Instant antes = Instant.parse("2026-11-01T10:00:00Z");
+        ReflectionTestUtils.setField(r, "fechaUltimoEstado", antes);
+
+        r.redirigir(2L, false);
+
+        assertEquals(EstadoReporte.RECIBIDO, r.getEstado());
+        assertEquals(2L, r.getOrganizacionId());
+        assertNull(r.getAreaId());
+        assertEquals(MotivoCanalizacion.redireccion, r.getMotivoCanalizacion());
+        assertTrue(r.getFechaUltimoEstado().isAfter(antes));
+    }
+
+    @Test
+    void redirigirAUnaExternaLaDejaEnCanalizacionExterna() {
+        Reporte r = recibido(null);
+
+        r.redirigir(3L, true);
+
+        assertEquals(EstadoReporte.CANALIZACION_EXTERNA, r.getEstado());
+    }
+
+    @Test
+    void soloSeRedirigeUnReporteRecibido() {
+        Reporte r = recibido(4L);
+        r.validar();
+
+        assertThrows(TransicionInvalidaException.class, () -> r.redirigir(2L, false));
+    }
+
+    @Test
+    void unReporteResueltoSeReabreUnaVezEnLaMismaArea() {
+        Reporte r = resuelto();
+
+        r.reabrir(15, Instant.now());
+
+        assertEquals(EstadoReporte.REABIERTO, r.getEstado());
+        assertTrue(r.isReabierto());
+        assertEquals(4L, r.getAreaId());
+    }
+
+    @Test
+    void noSeReabreDosVeces() {
+        Reporte r = resuelto();
+        r.reabrir(15, Instant.now());
+        r.iniciarAtencion();
+        r.resolver();
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class, () -> r.reabrir(15, Instant.now()));
+
+        assertEquals("YA_REABIERTO", error.getCodigo());
+    }
+
+    @Test
+    void noSeReabreFueraDelPlazo() {
+        Reporte r = resuelto();
+        Instant despues = r.getFechaResolucion().plus(Duration.ofDays(15));
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class, () -> r.reabrir(15, despues));
+
+        assertEquals("PLAZO_VENCIDO", error.getCodigo());
+        assertEquals(EstadoReporte.RESUELTO, r.getEstado());
+    }
+
+    @Test
+    void soloSeReabreUnReporteResuelto() {
+        Reporte r = recibido(4L);
+
+        assertThrows(TransicionInvalidaException.class, () -> r.reabrir(15, Instant.now()));
+    }
+
+    private static Reporte resuelto() {
+        Reporte r = recibido(4L);
+        r.validar();
+        r.iniciarAtencion();
+        r.resolver();
+        return r;
     }
 
     private static Reporte recibido(Long areaId) {

@@ -23,6 +23,8 @@ import jakarta.persistence.Table;
 @Table(name = "historial_reporte")
 public class HistorialReporte {
 
+    public static final String ACCION_CONFIRMACION = "confirmacion";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -118,6 +120,33 @@ public class HistorialReporte {
         evento.areaAnteriorId = areaAnterior;
         evento.areaNuevaId = areaNueva;
         return evento;
+    }
+
+    /** CU-21: el personal envió el reporte a otra organización (la justificación va en una {@link #nota}). */
+    public static HistorialReporte redireccion(long reporteId, EstadoReporte nuevo, long organizacionAnterior,
+                                               long organizacionNueva, Long areaAnterior, String textoPublico,
+                                               long usuarioId) {
+        HistorialReporte evento = cambioPorPersonal(reporteId, EstadoReporte.RECIBIDO, nuevo, "redireccion",
+                textoPublico, usuarioId);
+        evento.organizacionAnteriorId = organizacionAnterior;
+        evento.organizacionNuevaId = organizacionNueva;
+        evento.areaAnteriorId = areaAnterior;
+        return evento;
+    }
+
+    /** CU-23: el ciudadano reabrió el reporte; su descripción queda en su propio historial. */
+    public static HistorialReporte reapertura(long reporteId, String motivo) {
+        return new HistorialReporte(reporteId, EstadoReporte.RESUELTO, EstadoReporte.REABIERTO, "reapertura",
+                "Indicaste que el problema persiste: " + motivo, true);
+    }
+
+    /**
+     * CU-23 FA-01: el ciudadano confirmó la resolución; el estado no cambia. Como no cambia de
+     * estado, no aparece en el historial del ciudadano: el texto lo lee el personal.
+     */
+    public static HistorialReporte confirmacion(long reporteId) {
+        return new HistorialReporte(reporteId, null, null, ACCION_CONFIRMACION,
+                "El ciudadano confirmó que el problema se resolvió.", true);
     }
 
     /**

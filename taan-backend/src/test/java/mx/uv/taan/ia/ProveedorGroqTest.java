@@ -31,7 +31,7 @@ class ProveedorGroqTest {
     void preparar() {
         RestClient.Builder builder = RestClient.builder();
         servidor = MockRestServiceServer.bindTo(builder).build();
-        groq = new ProveedorGroq(builder.build(), "clave-de-prueba", "llama-3.3-70b-versatile");
+        groq = new ProveedorGroq(builder.build(), "clave-de-prueba", "openai/gpt-oss-120b");
     }
 
     @Test
@@ -39,7 +39,7 @@ class ProveedorGroqTest {
         servidor.expect(requestTo(URL))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer clave-de-prueba"))
-                .andExpect(jsonPath("$.model").value("llama-3.3-70b-versatile"))
+                .andExpect(jsonPath("$.model").value("openai/gpt-oss-120b"))
                 .andExpect(jsonPath("$.response_format.type").value("json_object"))
                 .andExpect(jsonPath("$.messages[0].role").value("system"))
                 .andExpect(jsonPath("$.messages[1].content").value("datos"))

@@ -58,7 +58,7 @@ taan:
       modelo: ${GEMINI_MODELO:gemini-flash-lite-latest}   # verificar el código vigente en Google AI Studio
     groq:
       api-key: ${GROQ_API_KEY:}
-      modelo: ${GROQ_MODELO:llama-3.3-70b-versatile}      # verificar el modelo vigente en la consola de Groq
+      modelo: ${GROQ_MODELO:openai/gpt-oss-120b}      # verificar el modelo vigente en la consola de Groq
   captcha:
     secreto: ${TURNSTILE_SECRETO:}
   archivos:

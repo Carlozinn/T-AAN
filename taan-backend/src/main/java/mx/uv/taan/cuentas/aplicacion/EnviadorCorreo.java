@@ -12,4 +12,10 @@ public interface EnviadorCorreo {
 
     /** Envía el enlace para restablecer la contraseña olvidada (CU-04). */
     void enviarRecuperacion(String correo, String nombre, String enlace);
+
+    /** Avisa la suspensión de la cuenta con su motivo y vigencia (RF-043; vigencia "indefinida" si no tiene fecha). */
+    void enviarAvisoSuspension(String correo, String nombre, String motivo, String vigencia);
+
+    /** Avisa que el administrador levantó la suspensión, con su motivo (RF-043). */
+    void enviarAvisoLevantamiento(String correo, String nombre, String motivo);
 }

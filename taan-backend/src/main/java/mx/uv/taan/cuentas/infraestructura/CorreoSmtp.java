@@ -46,6 +46,33 @@ public class CorreoSmtp implements EnviadorCorreo {
                 """.formatted(nombre, enlace));
     }
 
+    @Override
+    public void enviarAvisoSuspension(String correo, String nombre, String motivo, String vigencia) {
+        enviar(correo, "Tu cuenta de T'AAN fue suspendida", """
+                Hola %s:
+
+                Tu cuenta de T'AAN fue suspendida %s por el siguiente motivo:
+
+                %s
+
+                Mientras tanto puedes consultar tus reportes, pero no crear reportes nuevos ni reabrirlos.
+                Tus reportes anteriores no se modifican.
+                """.formatted(nombre, vigencia, motivo));
+    }
+
+    @Override
+    public void enviarAvisoLevantamiento(String correo, String nombre, String motivo) {
+        enviar(correo, "Tu cuenta de T'AAN está activa de nuevo", """
+                Hola %s:
+
+                Levantamos la suspensión de tu cuenta de T'AAN por el siguiente motivo:
+
+                %s
+
+                Desde ahora puedes volver a crear reportes y reabrirlos.
+                """.formatted(nombre, motivo));
+    }
+
     private void enviar(String correo, String asunto, String texto) {
         SimpleMailMessage mensaje = new SimpleMailMessage();
         mensaje.setFrom(remitente);

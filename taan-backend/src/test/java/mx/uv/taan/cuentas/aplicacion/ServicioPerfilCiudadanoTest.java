@@ -10,6 +10,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.comun.seguridad.CifradorDatos;
 import mx.uv.taan.cuentas.dominio.Ciudadano;
+import mx.uv.taan.cuentas.dominio.EstadoCuenta;
 import mx.uv.taan.cuentas.infraestructura.CiudadanoRepository;
 
 class ServicioPerfilCiudadanoTest {
@@ -62,6 +65,29 @@ class ServicioPerfilCiudadanoTest {
         assertEquals("Vecina Corregida", cuenta.getNombre());
         assertFalse(cuenta.isAvisosCorreo());
         assertNull(cuenta.getTelefonoCifrado());
+    }
+
+    @Test
+    void unaSuspensionVigenteSeMuestraConMotivoYBloqueaReportar() {
+        Instant hasta = Instant.now().plus(Duration.ofDays(3));
+        cuenta.suspender("Reportes falsos reiterados.", hasta);
+
+        PerfilCiudadano perfil = servicio.consultar(4L);
+
+        assertEquals(EstadoCuenta.suspendida, perfil.estado());
+        assertEquals(hasta, perfil.suspension().hasta());
+        assertTrue(servicio.condicionParaReportar(4L).suspendida());
+    }
+
+    @Test
+    void unaSuspensionVencidaSeMuestraComoCuentaActiva() {
+        cuenta.suspender("Reportes falsos reiterados.", Instant.now().minus(Duration.ofHours(1)));
+
+        PerfilCiudadano perfil = servicio.consultar(4L);
+
+        assertEquals(EstadoCuenta.activa, perfil.estado());
+        assertNull(perfil.suspension());
+        assertFalse(servicio.condicionParaReportar(4L).suspendida());
     }
 
     @Test

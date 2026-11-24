@@ -137,6 +137,28 @@ public class Ciudadano {
         this.avisosCorreo = avisosCorreo;
     }
 
+    /**
+     * Suspende la cuenta (RF-043). hasta = null es indefinida; una suspensión nueva reemplaza
+     * la vigencia anterior. No toca los reportes ni la sesión: la cuenta sigue consultando.
+     */
+    public void suspender(String motivo, Instant hasta) {
+        this.estado = EstadoCuenta.suspendida;
+        this.motivoSuspension = motivo;
+        this.suspendidaHasta = hasta;
+    }
+
+    /** El administrador levanta la suspensión: la cuenta vuelve a reportar y reabrir de inmediato. */
+    public void levantarSuspension() {
+        this.estado = EstadoCuenta.activa;
+        this.motivoSuspension = null;
+        this.suspendidaHasta = null;
+    }
+
+    /** Vigente si es indefinida o aún no llega su fecha: al vencer, la cuenta vuelve a reportar (CU-26 FA-02). */
+    public boolean suspensionVigente(Instant ahora) {
+        return estado == EstadoCuenta.suspendida && (suspendidaHasta == null || suspendidaHasta.isAfter(ahora));
+    }
+
     public boolean esDeGoogle() {
         return metodoAcceso == MetodoAcceso.google;
     }

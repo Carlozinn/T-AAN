@@ -18,6 +18,7 @@ import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.reportes.dominio.HistorialReporte;
 import mx.uv.taan.reportes.dominio.Reporte;
 import mx.uv.taan.reportes.infraestructura.BusquedaReportes;
+import mx.uv.taan.reportes.infraestructura.EstadisticasReportes;
 import mx.uv.taan.reportes.infraestructura.HistorialReporteRepository;
 import mx.uv.taan.reportes.infraestructura.ReporteRepository;
 
@@ -37,12 +38,14 @@ public class ServicioExpedientes {
     private final ReporteRepository reportes;
     private final HistorialReporteRepository historial;
     private final BusquedaReportes busqueda;
+    private final EstadisticasReportes estadisticas;
 
     public ServicioExpedientes(ReporteRepository reportes, HistorialReporteRepository historial,
-                               BusquedaReportes busqueda) {
+                               BusquedaReportes busqueda, EstadisticasReportes estadisticas) {
         this.reportes = reportes;
         this.historial = historial;
         this.busqueda = busqueda;
+        this.estadisticas = estadisticas;
     }
 
     @Transactional(readOnly = true)
@@ -53,6 +56,18 @@ public class ServicioExpedientes {
     @Transactional(readOnly = true)
     public Optional<Reporte> porId(long id) {
         return reportes.findById(id);
+    }
+
+    /** Varios reportes en una sola consulta, indexados por id. */
+    @Transactional(readOnly = true)
+    public Map<Long, Reporte> porIds(Collection<Long> ids) {
+        return reportes.findAllById(ids).stream().collect(Collectors.toMap(Reporte::getId, Function.identity()));
+    }
+
+    /** Indicadores agregados del periodo para estadísticas e informes (CU-10); sin datos personales. */
+    @Transactional(readOnly = true)
+    public IndicadoresReportes indicadores(FiltroIndicadores filtro) {
+        return estadisticas.calcular(filtro);
     }
 
     /** Bloquea la fila hasta el fin de la transacción de quien llama (SELECT ... FOR UPDATE). */

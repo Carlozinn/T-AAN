@@ -1284,7 +1284,8 @@ paths:
       - Atención institucional
       operationId: senalarCuenta
       summary: Señalar posible abuso de la cuenta
-      description: No cambia el estado del reporte; queda pendiente de revisión del administrador.
+      description: 'No cambia el estado del reporte; queda pendiente de revisión del administrador.
+        Conflicto: SENALAMIENTO_PENDIENTE (el reporte ya tiene uno sin resolver) o CUENTA_ELIMINADA.'
       x-casos-uso:
       - CU-26
       x-requisitos:
@@ -1454,7 +1455,7 @@ paths:
       - Estadísticas e informes
       operationId: obtenerEstadisticas
       summary: Indicadores del periodo
-      description: El personal de área solo obtiene los de su área.
+      description: El personal de área solo obtiene los de su área. El periodo abarca como máximo 366 días.
       x-casos-uso:
       - CU-10
       x-requisitos:
@@ -2584,7 +2585,9 @@ paths:
       - Administración técnica
       operationId: resolverSenalamiento
       summary: Desestimar o suspender la cuenta
-      description: Al suspender se avisa al ciudadano y se registra la decisión; los reportes no se modifican.
+      description: 'Al suspender se avisa al ciudadano y se registra la decisión; los reportes no se modifican.
+        La primera suspensión de una cuenta requiere diasSuspension. Conflicto: SENALAMIENTO_RESUELTO o
+        CUENTA_ELIMINADA.'
       x-casos-uso:
       - CU-26
       x-requisitos:
@@ -2607,6 +2610,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Senalamiento'
+        '400':
+          $ref: '#/components/responses/Invalido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/Prohibido'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/Conflicto'
+  /admin/ciudadanos/{id}/suspension/levantamiento:
+    post:
+      tags:
+      - Administración técnica
+      operationId: levantarSuspension
+      summary: Levantar la suspensión de una cuenta ciudadana
+      description: 'Registra quién la levantó, cuándo, el motivo y la suspensión interrumpida, y avisa al
+        ciudadano por correo. No borra antecedentes: los señalamientos aceptados siguen contando para la
+        reincidencia. El id es el del ciudadano (Senalamiento.ciudadano.id). Conflicto: CUENTA_NO_SUSPENDIDA
+        (sin suspensión vigente, incluida una ya vencida).'
+      x-casos-uso:
+      - CU-26
+      x-requisitos:
+      - RF-043
+      x-roles:
+      - administrador
+      x-alcance: MVP
+      parameters:
+      - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudLevantamiento'
+      responses:
+        '201':
+          description: Operación realizada.
         '400':
           $ref: '#/components/responses/Invalido'
         '401':
@@ -3543,15 +3584,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Conteo'
-        tiempoPromedioAtencionHoras:
+        tiempoPromedioAsignacionHoras:
           type: number
           nullable: true
+          description: Desde la creación hasta la primera asignación a un área.
+        tiempoPromedioResolucionHoras:
+          type: number
+          nullable: true
+          description: Desde la creación hasta la resolución.
         enTiempo:
           type: integer
+          description: Reportes abiertos con semáforo verde o amarillo.
         atrasados:
           type: integer
+          description: Reportes abiertos con semáforo rojo.
         reabiertos:
           type: integer
+        redirigidos:
+          type: integer
+          description: Reportes que esta organización (o área) envió a otra organización.
       required:
       - periodoInicio
       - periodoFin
@@ -3562,6 +3613,7 @@ components:
       - enTiempo
       - atrasados
       - reabiertos
+      - redirigidos
       description: Sin datos personales de ciudadanos (RF-026).
     SolicitudInforme:
       type: object
@@ -3585,6 +3637,7 @@ components:
       - periodoInicio
       - periodoFin
       - formato
+      description: El periodo abarca como máximo 366 días.
     Area:
       type: object
       properties:
@@ -4099,6 +4152,9 @@ components:
           format: int64
         folio:
           $ref: '#/components/schemas/Folio'
+        descripcion:
+          type: string
+          description: Descripción del reporte señalado, para que el administrador lo revise (CU-26 paso 2).
         ciudadano:
           allOf:
           - $ref: '#/components/schemas/Usuarioref'
@@ -4147,10 +4203,20 @@ components:
         diasSuspension:
           type: integer
           minimum: 1
+          maximum: 3650
           nullable: true
           description: Solo si decision = suspender. null = indefinida (reincidencia, RF-043).
       required:
       - decision
+      - motivo
+    SolicitudLevantamiento:
+      type: object
+      properties:
+        motivo:
+          type: string
+          minLength: 10
+          maxLength: 2000
+      required:
       - motivo
     PlantillaArea:
       type: object

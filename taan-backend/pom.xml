@@ -79,6 +79,18 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
+		<!-- Informes exportables (RF-026): PDF y hoja de cálculo -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>3.0.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.dhatim</groupId>
+			<artifactId>fastexcel</artifactId>
+			<version>0.20.3</version>
+		</dependency>
+
 		<!-- Pruebas -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

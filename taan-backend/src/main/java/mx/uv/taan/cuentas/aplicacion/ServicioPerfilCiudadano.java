@@ -34,17 +34,12 @@ public class ServicioPerfilCiudadano {
         return perfilDe(buscar(ciudadanoId));
     }
 
-    /**
-     * Condición de la cuenta para crear reportes (CU-01). Una suspensión con fecha ya vencida
-     * cuenta como no vigente; levantarla formalmente es parte de la moderación (incremento 6).
-     */
+    /** Condición de la cuenta para crear reportes (CU-01). Una suspensión con fecha ya vencida no cuenta. */
     @Transactional(readOnly = true)
     public CondicionCiudadano condicionParaReportar(long ciudadanoId) {
         Ciudadano cuenta = buscar(ciudadanoId);
-        boolean suspendida = cuenta.getEstado() == EstadoCuenta.suspendida
-                && (cuenta.getSuspendidaHasta() == null || cuenta.getSuspendidaHasta().isAfter(Instant.now()));
-        return new CondicionCiudadano(cuenta.isCorreoVerificado(), cuenta.requiereTelefono(), suspendida,
-                cuenta.getMotivoSuspension(), cuenta.getSuspendidaHasta());
+        return new CondicionCiudadano(cuenta.isCorreoVerificado(), cuenta.requiereTelefono(),
+                cuenta.suspensionVigente(Instant.now()), cuenta.getMotivoSuspension(), cuenta.getSuspendidaHasta());
     }
 
     /**
@@ -88,12 +83,15 @@ public class ServicioPerfilCiudadano {
                 .orElseThrow(() -> new ReglaNegocioException(401, "NO_AUTENTICADO", "Vuelve a iniciar sesión."));
     }
 
+    /** Muestra el estado efectivo: una suspensión ya vencida aparece como cuenta activa. */
     private PerfilCiudadano perfilDe(Ciudadano cuenta) {
-        PerfilCiudadano.Suspension suspension = cuenta.getEstado() == EstadoCuenta.suspendida
+        boolean suspendida = cuenta.suspensionVigente(Instant.now());
+        PerfilCiudadano.Suspension suspension = suspendida
                 ? new PerfilCiudadano.Suspension(cuenta.getMotivoSuspension(), cuenta.getSuspendidaHasta())
                 : null;
         String telefono = cuenta.getTelefonoCifrado() == null ? null : cifrador.descifrar(cuenta.getTelefonoCifrado());
         return new PerfilCiudadano(cuenta.getNombre(), cuenta.getCorreo(), cuenta.getMetodoAcceso(),
-                telefono, cuenta.isAvisosCorreo(), cuenta.getEstado(), suspension);
+                telefono, cuenta.isAvisosCorreo(), suspendida ? EstadoCuenta.suspendida : EstadoCuenta.activa,
+                suspension);
     }
 }

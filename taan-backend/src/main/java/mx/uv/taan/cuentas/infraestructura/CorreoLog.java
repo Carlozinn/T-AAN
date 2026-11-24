@@ -23,4 +23,14 @@ public class CorreoLog implements EnviadorCorreo {
     public void enviarRecuperacion(String correo, String nombre, String enlace) {
         log.info("[solo desarrollo] Enlace de recuperación para {}: {}", correo, enlace);
     }
+
+    @Override
+    public void enviarAvisoSuspension(String correo, String nombre, String motivo, String vigencia) {
+        log.info("[solo desarrollo] Aviso de suspensión para {} ({}): {}", correo, vigencia, motivo);
+    }
+
+    @Override
+    public void enviarAvisoLevantamiento(String correo, String nombre, String motivo) {
+        log.info("[solo desarrollo] Aviso de suspensión levantada para {}: {}", correo, motivo);
+    }
 }

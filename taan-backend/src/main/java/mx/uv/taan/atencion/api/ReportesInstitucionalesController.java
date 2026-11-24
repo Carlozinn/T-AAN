@@ -25,17 +25,19 @@ import mx.uv.taan.atencion.api.dto.MarcaDuplicadoSolicitud;
 import mx.uv.taan.atencion.api.dto.RechazoSolicitud;
 import mx.uv.taan.atencion.api.dto.RedireccionSolicitud;
 import mx.uv.taan.atencion.api.dto.ResolucionSolicitud;
+import mx.uv.taan.atencion.api.dto.SenalamientoSolicitud;
 import mx.uv.taan.atencion.api.dto.ValidacionSolicitud;
 import mx.uv.taan.atencion.aplicacion.EventoHistorial;
 import mx.uv.taan.atencion.aplicacion.ReporteDetalleInstitucional;
 import mx.uv.taan.atencion.aplicacion.ReporteResumenInstitucional;
 import mx.uv.taan.atencion.aplicacion.ServicioBandeja;
 import mx.uv.taan.atencion.aplicacion.ServicioFlujoAtencion;
+import mx.uv.taan.atencion.aplicacion.ServicioSenalamientos;
 import mx.uv.taan.comun.api.Pagina;
 import mx.uv.taan.cuentas.aplicacion.UsuarioActual;
 
 /**
- * Atención institucional (CU-05 a CU-09, CU-17, CU-18, CU-21; roles personal_area y coordinacion).
+ * Atención institucional (CU-05 a CU-09, CU-17, CU-18, CU-21, CU-26; roles personal_area y coordinacion).
  * El alcance de cada usuario (su área o su organización) lo aplican los servicios.
  */
 @RestController
@@ -44,10 +46,13 @@ public class ReportesInstitucionalesController {
 
     private final ServicioBandeja bandeja;
     private final ServicioFlujoAtencion flujo;
+    private final ServicioSenalamientos senalamientos;
 
-    public ReportesInstitucionalesController(ServicioBandeja bandeja, ServicioFlujoAtencion flujo) {
+    public ReportesInstitucionalesController(ServicioBandeja bandeja, ServicioFlujoAtencion flujo,
+                                             ServicioSenalamientos senalamientos) {
         this.bandeja = bandeja;
         this.flujo = flujo;
+        this.senalamientos = senalamientos;
     }
 
     @GetMapping
@@ -121,6 +126,12 @@ public class ReportesInstitucionalesController {
     public ReporteDetalleInstitucional redirigir(@PathVariable String folio, @Valid @RequestBody RedireccionSolicitud s,
                                                  UsuarioActual usuario) {
         return flujo.redirigir(usuario, folio, s.organizacionDestinoId(), s.categoriaFinalId(), s.justificacion());
+    }
+
+    @PostMapping("/{folio}/senalamientos")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void senalar(@PathVariable String folio, @Valid @RequestBody SenalamientoSolicitud s, UsuarioActual usuario) {
+        senalamientos.senalar(usuario, folio, s.motivo());
     }
 
     @PostMapping(path = "/{folio}/evidencias", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

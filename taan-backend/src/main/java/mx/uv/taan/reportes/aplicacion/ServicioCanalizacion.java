@@ -46,16 +46,18 @@ public class ServicioCanalizacion {
     private final ServicioCategorias categorias;
     private final MotorReglas motor;
     private final ObjectMapper json;
+    private final PublicadorAvisos avisos;
 
     public ServicioCanalizacion(ReporteRepository reportes, HistorialReporteRepository historial,
                                 ResultadoIaRepository resultadosIa, ServicioCategorias categorias,
-                                MotorReglas motor, ObjectMapper json) {
+                                MotorReglas motor, ObjectMapper json, PublicadorAvisos avisos) {
         this.reportes = reportes;
         this.historial = historial;
         this.resultadosIa = resultadosIa;
         this.categorias = categorias;
         this.motor = motor;
         this.json = json;
+        this.avisos = avisos;
     }
 
     /** Descripción del reporte si sigue pendiente (lo único que se envía a la IA: nunca datos personales). */
@@ -124,8 +126,10 @@ public class ServicioCanalizacion {
         reporte.canalizar(categoriaId, resultado.posibleContenidoNoValido(), d.organizacionId(), d.areaId(),
                 MotivoCanalizacion.valueOf(d.motivo().name()), nuevoEstado);
         resultadosIa.guardar(reporteId, comoJson(resultado, categoriaId, reporte.getIntentosIa()));
-        historial.save(HistorialReporte.canalizacion(reporteId, nuevoEstado, d.organizacionId(), d.areaId(),
-                textoPublico(d)));
+        HistorialReporte evento = HistorialReporte.canalizacion(reporteId, nuevoEstado, d.organizacionId(), d.areaId(),
+                textoPublico(d));
+        historial.save(evento);
+        avisos.publicar(evento);
         log.info("Reporte {} canalizado a {} ({}, motivo {}).", reporte.getFolio(), d.organizacion(),
                 nuevoEstado.valorBd(), d.motivo());
     }

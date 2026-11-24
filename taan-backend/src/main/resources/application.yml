@@ -41,6 +41,7 @@ taan:
   limites:                         # intentos de inicio de sesión por cuenta y por origen (RNF-009)
     intentos-fallidos: 5
     ventana-minutos: 15
+    solicitudes-por-hora: 5        # registro, reenvío de verificación y recuperación, por origen (RNF-022)
   web:
     url: ${TAAN_WEB_URL:http://localhost:4200}   # base de los enlaces que viajan por correo
   google:
@@ -49,7 +50,9 @@ taan:
     correo: ${TAAN_ADMIN_CORREO:admin@taan.mx}
     password: ${TAAN_ADMIN_PASSWORD:} # solo se usa la primera vez, para crear la cuenta
   cors:
-    origenes: http://localhost:4200,http://localhost:8100,capacitor://localhost,https://localhost
+    origenes: ${TAAN_CORS_ORIGENES:http://localhost:4200,http://localhost:8100,capacitor://localhost,https://localhost}
+  firebase:
+    credenciales: ${TAAN_FIREBASE_CREDENCIALES:}   # ruta al JSON de la cuenta de servicio; vacío = push deshabilitado
   ia:
     timeout-segundos: ${TAAN_IA_TIMEOUT_SEGUNDOS:15}   # por llamada a cada proveedor
     intentos-maximos: ${TAAN_IA_INTENTOS_MAXIMOS:3}    # si fallan ambos proveedores, se reintenta (RF-007)

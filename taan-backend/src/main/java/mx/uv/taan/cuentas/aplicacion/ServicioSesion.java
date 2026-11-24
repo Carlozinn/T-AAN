@@ -1,6 +1,5 @@
 package mx.uv.taan.cuentas.aplicacion;
 
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,14 +24,14 @@ public class ServicioSesion {
     private final ServicioTokens tokens;
     private final CiudadanoRepository ciudadanos;
     private final UsuarioRepository usuarios;
-    private final JdbcTemplate jdbc;
+    private final ServicioDispositivos dispositivos;
 
     public ServicioSesion(ServicioTokens tokens, CiudadanoRepository ciudadanos,
-                          UsuarioRepository usuarios, JdbcTemplate jdbc) {
+                          UsuarioRepository usuarios, ServicioDispositivos dispositivos) {
         this.tokens = tokens;
         this.ciudadanos = ciudadanos;
         this.usuarios = usuarios;
-        this.jdbc = jdbc;
+        this.dispositivos = dispositivos;
     }
 
     @Transactional(readOnly = true)
@@ -61,8 +60,7 @@ public class ServicioSesion {
     @Transactional
     public void cerrar(long id, Rol rol, String tokenDispositivo) {
         if (rol == Rol.ciudadano && tokenDispositivo != null && !tokenDispositivo.isBlank()) {
-            jdbc.update("DELETE FROM suscripcion_aviso WHERE ciudadano_id = ? AND token_dispositivo = ?",
-                    id, tokenDispositivo);
+            dispositivos.darDeBaja(id, tokenDispositivo);
         }
     }
 

@@ -39,13 +39,16 @@ public class ServicioExpedientes {
     private final HistorialReporteRepository historial;
     private final BusquedaReportes busqueda;
     private final EstadisticasReportes estadisticas;
+    private final PublicadorAvisos avisos;
 
     public ServicioExpedientes(ReporteRepository reportes, HistorialReporteRepository historial,
-                               BusquedaReportes busqueda, EstadisticasReportes estadisticas) {
+                               BusquedaReportes busqueda, EstadisticasReportes estadisticas,
+                               PublicadorAvisos avisos) {
         this.reportes = reportes;
         this.historial = historial;
         this.busqueda = busqueda;
         this.estadisticas = estadisticas;
+        this.avisos = avisos;
     }
 
     @Transactional(readOnly = true)
@@ -76,9 +79,13 @@ public class ServicioExpedientes {
         return reportes.bloquearPorFolio(folio).orElseThrow(ReglaNegocioException::noEncontrado);
     }
 
+    /** Guarda los eventos y avisa al ciudadano los que correspondan (RF-034, RF-044) cuando se confirme la transacción. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void registrar(HistorialReporte... eventos) {
         historial.saveAll(List.of(eventos));
+        for (HistorialReporte evento : eventos) {
+            avisos.publicar(evento);
+        }
     }
 
     /** Página de la bandeja, en el orden de la búsqueda. */

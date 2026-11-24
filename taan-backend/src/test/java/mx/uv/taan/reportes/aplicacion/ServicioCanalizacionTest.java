@@ -43,6 +43,7 @@ class ServicioCanalizacionTest {
     private HistorialReporteRepository historial;
     private MotorReglas motor;
     private ResultadoIaRepository resultadosIa;
+    private PublicadorAvisos avisos;
     private ServicioCanalizacion servicio;
     private Reporte reporte;
     private final ObjectMapper json = JsonMapper.builder().build();
@@ -53,12 +54,13 @@ class ServicioCanalizacionTest {
         historial = mock(HistorialReporteRepository.class);
         motor = mock(MotorReglas.class);
         resultadosIa = mock(ResultadoIaRepository.class);
+        avisos = mock(PublicadorAvisos.class);
         ServicioCategorias categorias = mock(ServicioCategorias.class);
         when(categorias.listarActivas()).thenReturn(List.of(
                 new CategoriaVista(4L, "Vialidades", null, true),
                 new CategoriaVista(12L, "Bache", 4L, true),
                 new CategoriaVista(1L, "Alumbrado público", null, true)));
-        servicio = new ServicioCanalizacion(reportes, historial, resultadosIa, categorias, motor, json);
+        servicio = new ServicioCanalizacion(reportes, historial, resultadosIa, categorias, motor, json, avisos);
 
         reporte = new Reporte("TAAN-2026-000001", 7L, "Hay un bache enorme en la calle", 18.85, -97.06, OrigenReporte.app);
         ReflectionTestUtils.setField(reporte, "id", 100L);
@@ -88,6 +90,7 @@ class ServicioCanalizacionTest {
         ArgumentCaptor<HistorialReporte> evento = ArgumentCaptor.forClass(HistorialReporte.class);
         verify(historial).save(evento.capture());
         assertEquals("canalizacion", evento.getValue().getAccion());
+        verify(avisos).publicar(evento.getValue());
     }
 
     @Test

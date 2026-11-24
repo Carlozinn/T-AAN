@@ -52,6 +52,14 @@ public class ServicioPerfilCiudadano {
                 c.getTelefonoCifrado() == null ? null : cifrador.descifrar(c.getTelefonoCifrado())));
     }
 
+    /** Correo y nombre para los avisos de seguimiento (RF-044): solo si la cuenta los activó y su correo está verificado. */
+    @Transactional(readOnly = true)
+    public Optional<DestinatarioAviso> destinatarioAvisosCorreo(long ciudadanoId) {
+        return ciudadanos.findById(ciudadanoId)
+                .filter(c -> c.isAvisosCorreo() && c.isCorreoVerificado())
+                .map(c -> new DestinatarioAviso(c.getCorreo(), c.getNombre()));
+    }
+
     /** Solo cambia los campos enviados (null = sin cambio), como indica el contrato. */
     @Transactional
     public PerfilCiudadano actualizar(long ciudadanoId, String nombre, String telefono, Boolean avisosCorreo) {

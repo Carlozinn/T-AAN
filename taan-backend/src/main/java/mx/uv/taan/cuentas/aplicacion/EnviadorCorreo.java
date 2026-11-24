@@ -18,4 +18,7 @@ public interface EnviadorCorreo {
 
     /** Avisa que el administrador levantó la suspensión, con su motivo (RF-043). */
     void enviarAvisoLevantamiento(String correo, String nombre, String motivo);
+
+    /** Avisa una novedad de un reporte (RF-044): solo el folio y el resumen, con el enlace a «Mis reportes». */
+    void enviarAvisoReporte(String correo, String nombre, String folio, String resumen, String enlace);
 }

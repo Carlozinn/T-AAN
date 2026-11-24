@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -21,15 +22,20 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.cuentas.dominio.Ciudadano;
+import mx.uv.taan.comun.error.LimiteExcedidoException;
 import mx.uv.taan.cuentas.infraestructura.CiudadanoRepository;
+import mx.uv.taan.cuentas.infraestructura.LimiteSolicitudesCuenta;
 import mx.uv.taan.cuentas.infraestructura.ServicioTokens;
 
 class ServicioRegistroCiudadanoTest {
+
+    private static final String IP = "203.0.113.5";
 
     private CiudadanoRepository ciudadanos;
     private VerificadorCaptcha captcha;
     private EnviadorCorreo correo;
     private ServicioTokens tokens;
+    private LimiteSolicitudesCuenta limite;
     private ServicioRegistroCiudadano servicio;
 
     @BeforeEach
@@ -38,6 +44,7 @@ class ServicioRegistroCiudadanoTest {
         captcha = mock(VerificadorCaptcha.class);
         correo = mock(EnviadorCorreo.class);
         tokens = mock(ServicioTokens.class);
+        limite = mock(LimiteSolicitudesCuenta.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
         when(passwordEncoder.encode(anyString())).thenReturn("[hash]");
         when(captcha.esValido(anyString())).thenReturn(true);
@@ -46,7 +53,7 @@ class ServicioRegistroCiudadanoTest {
             ReflectionTestUtils.setField(cuenta, "id", 9L);
             return cuenta;
         });
-        servicio = new ServicioRegistroCiudadano(ciudadanos, passwordEncoder, captcha, correo, tokens,
+        servicio = new ServicioRegistroCiudadano(ciudadanos, passwordEncoder, captcha, correo, tokens, limite,
                 "http://localhost:4200");
     }
 
@@ -55,10 +62,32 @@ class ServicioRegistroCiudadanoTest {
         when(ciudadanos.findByCorreo("vecina@correo.mx")).thenReturn(Optional.empty());
         when(tokens.emitirVerificacion(9L)).thenReturn("token-firmado");
 
-        servicio.registrar("Vecina Ejemplo", "  Vecina@Correo.MX ", "contrasena8", "captcha", null);
+        servicio.registrar("Vecina Ejemplo", "  Vecina@Correo.MX ", "contrasena8", "captcha", null, IP);
 
         verify(ciudadanos).save(any());
         verify(correo).enviarVerificacion(eq("vecina@correo.mx"), eq("Vecina Ejemplo"), contains("token-firmado"));
+    }
+
+    @Test
+    void elLimitePorOrigenDetieneElRegistroAntesDeCrearNada() {
+        doThrow(new LimiteExcedidoException(3600)).when(limite).registrar(IP, LimiteSolicitudesCuenta.Tipo.registro);
+
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> servicio.registrar("Vecina", "vecina@correo.mx", "contrasena8", "captcha", null, IP));
+
+        assertEquals(429, error.getEstadoHttp());
+        verify(ciudadanos, never()).save(any());
+        verify(correo, never()).enviarVerificacion(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void elReenvioCuentaContraElLimiteAunqueElCorreoNoExista() {
+        when(ciudadanos.findByCorreo("nadie@correo.mx")).thenReturn(Optional.empty());
+
+        servicio.reenviar("nadie@correo.mx", IP);
+
+        verify(limite).registrar(IP, LimiteSolicitudesCuenta.Tipo.reenvio_verificacion);
+        verify(correo, never()).enviarVerificacion(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -67,7 +96,7 @@ class ServicioRegistroCiudadanoTest {
                 .thenReturn(Optional.of(Ciudadano.conCorreo("Otra", "vecina@correo.mx", "[hash]")));
 
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
-                () -> servicio.registrar("Vecina", "vecina@correo.mx", "contrasena8", "captcha", null));
+                () -> servicio.registrar("Vecina", "vecina@correo.mx", "contrasena8", "captcha", null, IP));
 
         assertEquals("CORREO_REGISTRADO", error.getCodigo());
         assertEquals(409, error.getEstadoHttp());
@@ -76,7 +105,7 @@ class ServicioRegistroCiudadanoTest {
 
     @Test
     void elHoneypotDescartaElRegistroSinAvisarle() {
-        servicio.registrar("Bot", "bot@correo.mx", "contrasena8", "captcha", "relleno-de-bot");
+        servicio.registrar("Bot", "bot@correo.mx", "contrasena8", "captcha", "relleno-de-bot", IP);
 
         verify(ciudadanos, never()).save(any());
         verify(correo, never()).enviarVerificacion(anyString(), anyString(), anyString());
@@ -87,7 +116,7 @@ class ServicioRegistroCiudadanoTest {
         when(captcha.esValido("malo")).thenReturn(false);
 
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
-                () -> servicio.registrar("Vecina", "vecina@correo.mx", "contrasena8", "malo", null));
+                () -> servicio.registrar("Vecina", "vecina@correo.mx", "contrasena8", "malo", null, IP));
 
         assertEquals("CAPTCHA_INVALIDO", error.getCodigo());
     }

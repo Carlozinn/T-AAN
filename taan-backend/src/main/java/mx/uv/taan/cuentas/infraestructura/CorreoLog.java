@@ -33,4 +33,9 @@ public class CorreoLog implements EnviadorCorreo {
     public void enviarAvisoLevantamiento(String correo, String nombre, String motivo) {
         log.info("[solo desarrollo] Aviso de suspensión levantada para {}: {}", correo, motivo);
     }
+
+    @Override
+    public void enviarAvisoReporte(String correo, String nombre, String folio, String resumen, String enlace) {
+        log.info("[solo desarrollo] Aviso del reporte {} para {}: {} ({})", folio, correo, resumen, enlace);
+    }
 }

@@ -102,4 +102,21 @@ class ServicioPerfilCiudadanoTest {
         ReglaNegocioException error = assertThrows(ReglaNegocioException.class, () -> servicio.consultar(99L));
         assertEquals(401, error.getEstadoHttp());
     }
+
+    @Test
+    void losAvisosPorCorreoSoloVanAUnCorreoVerificadoConLaPreferenciaActiva() {
+        assertTrue(servicio.destinatarioAvisosCorreo(4L).isEmpty());
+
+        cuenta.verificarCorreo();
+        assertEquals(Optional.of(new DestinatarioAviso("vecina@correo.mx", "Vecina")),
+                servicio.destinatarioAvisosCorreo(4L));
+
+        cuenta.cambiarAvisosCorreo(false);
+        assertTrue(servicio.destinatarioAvisosCorreo(4L).isEmpty());
+    }
+
+    @Test
+    void unaCuentaEliminadaNoTieneDestinatarioDeAvisos() {
+        assertTrue(servicio.destinatarioAvisosCorreo(99L).isEmpty());
+    }
 }

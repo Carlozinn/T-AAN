@@ -73,6 +73,19 @@ public class CorreoSmtp implements EnviadorCorreo {
                 """.formatted(nombre, motivo));
     }
 
+    @Override
+    public void enviarAvisoReporte(String correo, String nombre, String folio, String resumen, String enlace) {
+        enviar(correo, "Tu reporte " + folio + " tiene una actualización", """
+                Hola %s:
+
+                %s
+
+                Consulta el detalle en «Mis reportes»: %s
+
+                Si ya no quieres recibir estos avisos, desactívalos en tu perfil.
+                """.formatted(nombre, resumen, enlace));
+    }
+
     private void enviar(String correo, String asunto, String texto) {
         SimpleMailMessage mensaje = new SimpleMailMessage();
         mensaje.setFrom(remitente);

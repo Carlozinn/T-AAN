@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.cuentas.dominio.Ciudadano;
 import mx.uv.taan.cuentas.infraestructura.CiudadanoRepository;
+import mx.uv.taan.cuentas.infraestructura.LimiteSolicitudesCuenta;
 import mx.uv.taan.cuentas.infraestructura.ServicioTokens;
 
 /**
@@ -29,21 +30,27 @@ public class ServicioRecuperacionPassword {
     private final PasswordEncoder passwordEncoder;
     private final ServicioTokens tokens;
     private final EnviadorCorreo correo;
+    private final LimiteSolicitudesCuenta limite;
     private final String urlWeb;
 
     public ServicioRecuperacionPassword(CiudadanoRepository ciudadanos, PasswordEncoder passwordEncoder,
-                                        ServicioTokens tokens, EnviadorCorreo correo,
+                                        ServicioTokens tokens, EnviadorCorreo correo, LimiteSolicitudesCuenta limite,
                                         @Value("${taan.web.url:http://localhost:4200}") String urlWeb) {
         this.ciudadanos = ciudadanos;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
         this.correo = correo;
+        this.limite = limite;
         this.urlWeb = urlWeb;
     }
 
-    /** Siempre responde igual, exista o no la cuenta; las cuentas Google no tienen contraseña. */
+    /**
+     * Siempre responde igual, exista o no la cuenta; las cuentas Google no tienen contraseña.
+     * El límite por origen (429) se aplica antes de buscar la cuenta.
+     */
     @Transactional(readOnly = true)
-    public void solicitar(String correoSolicitado) {
+    public void solicitar(String correoSolicitado, String origenIp) {
+        limite.registrar(origenIp, LimiteSolicitudesCuenta.Tipo.recuperacion);
         ciudadanos.findByCorreo(ServicioRegistroCiudadano.normalizar(correoSolicitado))
                 .filter(cuenta -> !cuenta.esDeGoogle())
                 .ifPresent(cuenta -> {

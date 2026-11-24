@@ -1,5 +1,5 @@
 /**
- * Avisos push (Firebase Cloud Messaging) y por correo en cada cambio de estado visible.
+ * Avisos push (Firebase Cloud Messaging) y por correo en cada novedad visible de un reporte.
  *
  * <p>Casos de uso: CU-02, CU-25. Módulo del contrato (TAAN_API.yaml): -.</p>
  *

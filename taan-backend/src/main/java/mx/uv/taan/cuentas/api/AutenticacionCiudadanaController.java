@@ -41,9 +41,9 @@ public class AutenticacionCiudadanaController {
 
     @PostMapping("/registro")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void registrar(@Valid @RequestBody RegistroCorreoSolicitud solicitud) {
+    public void registrar(@Valid @RequestBody RegistroCorreoSolicitud solicitud, HttpServletRequest peticion) {
         registro.registrar(solicitud.nombre(), solicitud.correo(), solicitud.password(),
-                solicitud.captchaToken(), solicitud.campoAuxiliar());
+                solicitud.captchaToken(), solicitud.campoAuxiliar(), peticion.getRemoteAddr());
     }
 
     @PostMapping("/verificacion")
@@ -54,14 +54,15 @@ public class AutenticacionCiudadanaController {
 
     @PostMapping("/verificacion/reenvio")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void reenviar(@Valid @RequestBody SolicitudCorreoSolicitud solicitud) {
-        registro.reenviar(solicitud.correo());
+    public void reenviar(@Valid @RequestBody SolicitudCorreoSolicitud solicitud, HttpServletRequest peticion) {
+        registro.reenviar(solicitud.correo(), peticion.getRemoteAddr());
     }
 
     @PostMapping("/recuperacion")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void solicitarRecuperacion(@Valid @RequestBody SolicitudCorreoSolicitud solicitud) {
-        recuperacion.solicitar(solicitud.correo());
+    public void solicitarRecuperacion(@Valid @RequestBody SolicitudCorreoSolicitud solicitud,
+                                      HttpServletRequest peticion) {
+        recuperacion.solicitar(solicitud.correo(), peticion.getRemoteAddr());
     }
 
     @PostMapping("/recuperacion/confirmacion")

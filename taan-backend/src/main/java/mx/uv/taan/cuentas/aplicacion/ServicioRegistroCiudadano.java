@@ -13,6 +13,7 @@ import mx.uv.taan.comun.error.ReglaNegocioException;
 import mx.uv.taan.comun.seguridad.JwtTaan;
 import mx.uv.taan.cuentas.dominio.Ciudadano;
 import mx.uv.taan.cuentas.infraestructura.CiudadanoRepository;
+import mx.uv.taan.cuentas.infraestructura.LimiteSolicitudesCuenta;
 import mx.uv.taan.cuentas.infraestructura.ServicioTokens;
 
 /**
@@ -28,26 +29,30 @@ public class ServicioRegistroCiudadano {
     private final VerificadorCaptcha captcha;
     private final EnviadorCorreo correo;
     private final ServicioTokens tokens;
+    private final LimiteSolicitudesCuenta limite;
     private final String urlWeb;
 
     public ServicioRegistroCiudadano(CiudadanoRepository ciudadanos, PasswordEncoder passwordEncoder,
                                      VerificadorCaptcha captcha, EnviadorCorreo correo, ServicioTokens tokens,
+                                     LimiteSolicitudesCuenta limite,
                                      @Value("${taan.web.url:http://localhost:4200}") String urlWeb) {
         this.ciudadanos = ciudadanos;
         this.passwordEncoder = passwordEncoder;
         this.captcha = captcha;
         this.correo = correo;
         this.tokens = tokens;
+        this.limite = limite;
         this.urlWeb = urlWeb;
     }
 
     /**
      * Crea la cuenta (sin verificar) y envía el enlace. El honeypot responde 202 sin crear
-     * nada, para no darle pistas al bot (RNF-022).
+     * nada, para no darle pistas al bot (RNF-022). Antes de todo se aplica el límite por origen (429).
      */
     @Transactional
     public void registrar(String nombre, String correoSolicitado, String password,
-                          String captchaToken, String campoAuxiliar) {
+                          String captchaToken, String campoAuxiliar, String origenIp) {
+        limite.registrar(origenIp, LimiteSolicitudesCuenta.Tipo.registro);
         if (campoAuxiliar != null && !campoAuxiliar.isBlank()) {
             log.info("Registro descartado por honeypot.");
             return;
@@ -78,7 +83,8 @@ public class ServicioRegistroCiudadano {
 
     /** Reenvía el enlace. Siempre responde igual, exista o no la cuenta (no revela correos). */
     @Transactional(readOnly = true)
-    public void reenviar(String correoSolicitado) {
+    public void reenviar(String correoSolicitado, String origenIp) {
+        limite.registrar(origenIp, LimiteSolicitudesCuenta.Tipo.reenvio_verificacion);
         ciudadanos.findByCorreo(normalizar(correoSolicitado))
                 .filter(c -> !c.esDeGoogle() && !c.isCorreoVerificado())
                 .ifPresent(this::enviarEnlace);

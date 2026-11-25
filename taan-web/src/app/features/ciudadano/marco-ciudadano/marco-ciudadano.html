@@ -1,0 +1,13 @@
+<header class="barra">
+  <a class="marca" routerLink="/mis-reportes">T’AAN</a>
+  <nav aria-label="Principal">
+    <a routerLink="/mis-reportes" routerLinkActive="activo" ariaCurrentWhenActive="page">Mis reportes</a>
+    <button class="boton-secundario" type="button" (click)="salir()">Salir</button>
+  </nav>
+</header>
+<main class="contenedor">
+  @if (avisoSuspension(); as aviso) {
+    <p class="aviso" role="status">{{ aviso }}</p>
+  }
+  <router-outlet />
+</main>

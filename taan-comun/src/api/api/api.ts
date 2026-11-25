@@ -1,0 +1,17 @@
+export * from './acceso.service';
+import { AccesoService } from './acceso.service';
+export * from './administrador.service';
+import { AdministradorService } from './administrador.service';
+export * from './ajustes-institucionales.service';
+import { AjustesInstitucionalesService } from './ajustes-institucionales.service';
+export * from './archivos.service';
+import { ArchivosService } from './archivos.service';
+export * from './cuenta-ciudadana.service';
+import { CuentaCiudadanaService } from './cuenta-ciudadana.service';
+export * from './indicadores-e-informes.service';
+import { IndicadoresEInformesService } from './indicadores-e-informes.service';
+export * from './reportes-ciudadanos.service';
+import { ReportesCiudadanosService } from './reportes-ciudadanos.service';
+export * from './reportes-institucionales.service';
+import { ReportesInstitucionalesService } from './reportes-institucionales.service';
+export const APIS = [AccesoService, AdministradorService, AjustesInstitucionalesService, ArchivosService, CuentaCiudadanaService, IndicadoresEInformesService, ReportesCiudadanosService, ReportesInstitucionalesService];

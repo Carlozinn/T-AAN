@@ -11,19 +11,21 @@ taan/
 ├── docker-compose.yml    Base de datos local (PostgreSQL + PostGIS en Docker)
 ├── .env.ejemplo          Plantilla de configuración local (se copia como .env, que no se sube)
 ├── taan-backend/         Backend (Java 21 + Spring Boot)
+├── package.json          Workspace de npm del frontend (dependencias en la raíz)
+├── taan-comun/           Cliente de la API, sesión y errores compartidos por web y app
 ├── taan-web/             Portal web (Angular)
 └── taan-app/             App móvil (Ionic + Angular + Capacitor)
 ```
 
-> **Estado actual:** `taan-backend/` es un proyecto completo y ejecutable (incremento 1 en curso:
-> autenticación y roles). `taan-web/` y `taan-app/` contienen por ahora solo el código propio de
-> T'AAN; el proyecto completo se genera con Angular CLI / Ionic CLI siguiendo `LEEME.md` cuando
-> empiecen esos incrementos.
+> **Estado actual:** `taan-backend/` está completo (incrementos 1 a 7). `taan-web/` es un proyecto
+> Angular ejecutable con acceso ciudadano por correo y «Mis reportes»; `taan-comun/` guarda el cliente
+> de la API y la sesión que comparten la web y la app. `taan-app/` contiene por ahora solo el código
+> propio de T'AAN; el proyecto completo se genera con Ionic CLI siguiendo `LEEME.md`.
 
 ## Requisitos
 
 - **Git**, **JDK 21**, **Docker Desktop** e **IntelliJ IDEA**.
-- **Node.js LTS**: solo cuando se trabaje la web o la app.
+- **Node.js 26**: solo cuando se trabaje la web o la app (`npm install` en la raíz y `npm start` en `taan-web`; ver `LEEME.md`).
 - **Android Studio**: solo para compilar la app en Android.
 
 ## Puesta en marcha del backend

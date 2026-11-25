@@ -33,7 +33,7 @@ servers:
     dominio:
       default: taan.example.mx
 tags:
-- name: Autenticación
+- name: Acceso
   description: Registro e inicio de sesión de ciudadanos (Google o correo) y del personal institucional.
 - name: Cuenta ciudadana
   description: Perfil, teléfono, avisos, dispositivos y eliminación de cuenta.
@@ -41,13 +41,13 @@ tags:
   description: Registrar reportes y darles seguimiento desde «Mis reportes».
 - name: Archivos
   description: Descarga controlada de fotografías y evidencias.
-- name: Atención institucional
+- name: Reportes institucionales
   description: Bandeja, transiciones de estado, redirección y señalamientos.
-- name: Estadísticas e informes
+- name: Indicadores e informes
   description: Indicadores y exportación sin datos personales.
-- name: Configuración institucional
+- name: Ajustes institucionales
   description: Lo que configura la coordinación de cada organización.
-- name: Administración técnica
+- name: Administrador
   description: Lo que configura el administrador de T'AAN.
 security:
 - bearerAuth: []
@@ -55,7 +55,7 @@ paths:
   /auth/ciudadanos/registro:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: registrarCiudadanoCorreo
       summary: Crear cuenta ciudadana con correo
       description: Envía un enlace de verificación; la cuenta no puede reportar hasta confirmarlo.
@@ -86,7 +86,7 @@ paths:
   /auth/ciudadanos/verificacion:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: verificarCorreo
       summary: Confirmar el enlace de verificación
       description: NoProcesable con codigo ENLACE_VENCIDO si el enlace expiró (EX-02).
@@ -114,7 +114,7 @@ paths:
   /auth/ciudadanos/verificacion/reenvio:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: reenviarVerificacion
       summary: Reenviar el enlace de verificación
       description: Responde igual exista o no la cuenta, para no revelar correos registrados.
@@ -142,7 +142,7 @@ paths:
   /auth/ciudadanos/google:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: accederConGoogle
       summary: Continuar con Google (registro o inicio de sesión)
       description: Si el correo no tiene cuenta, la crea (requiere captchaToken y aceptaAvisoPrivacidad). requiereTelefono
@@ -177,7 +177,7 @@ paths:
   /auth/ciudadanos/sesion:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: iniciarSesionCiudadano
       summary: Iniciar sesión ciudadana con correo
       description: Credenciales incorrectas responden 400 con un mensaje que no revela si el correo existe.
@@ -210,7 +210,7 @@ paths:
   /auth/ciudadanos/recuperacion:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: solicitarRecuperacion
       summary: Solicitar restablecimiento de contraseña
       description: Solo cuentas de correo. Responde igual exista o no la cuenta.
@@ -238,7 +238,7 @@ paths:
   /auth/ciudadanos/recuperacion/confirmacion:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: restablecerPassword
       summary: Restablecer contraseña con el enlace
       x-casos-uso:
@@ -265,7 +265,7 @@ paths:
   /auth/institucional/sesion:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: iniciarSesionInstitucional
       summary: Iniciar sesión institucional
       description: requiereCambioPassword = true obliga a cambiar la credencial temporal.
@@ -299,7 +299,7 @@ paths:
   /auth/institucional/password:
     put:
       tags:
-      - Autenticación
+      - Acceso
       operationId: cambiarPasswordInstitucional
       summary: Cambiar contraseña institucional
       x-casos-uso:
@@ -329,9 +329,11 @@ paths:
   /auth/refresco:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: refrescarSesion
       summary: Renovar el token de acceso
+      description: 'NoProcesable: REFRESCO_INVALIDO (el refreshToken venció, no es válido o la cuenta ya
+        no está activa); hay que volver a iniciar sesión.'
       x-casos-uso:
       - CU-04
       x-requisitos:
@@ -360,7 +362,7 @@ paths:
   /auth/cierre:
     post:
       tags:
-      - Autenticación
+      - Acceso
       operationId: cerrarSesion
       summary: Cerrar sesión
       x-casos-uso:
@@ -833,7 +835,7 @@ paths:
   /institucional/reportes:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: buscarReportes
       summary: Bandeja y búsqueda de reportes
       description: El personal de área ve solo su área; la coordinación, toda su organización.
@@ -903,7 +905,7 @@ paths:
   /institucional/reportes/{folio}:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: obtenerReporteInstitucional
       summary: Detalle de un reporte
       x-casos-uso:
@@ -933,7 +935,7 @@ paths:
   /institucional/reportes/{folio}/historial:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: obtenerHistorial
       summary: Historial completo
       x-casos-uso:
@@ -964,7 +966,7 @@ paths:
   /institucional/reportes/{folio}/validacion:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: validarReporte
       summary: Validar un reporte
       description: Recibido → Asignado si una regla determinó el área; Recibido → Validado si no (solo coordinación).
@@ -1004,7 +1006,7 @@ paths:
   /institucional/reportes/{folio}/rechazo:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: rechazarReporte
       summary: Rechazar un reporte
       description: Recibido → Rechazado.
@@ -1044,7 +1046,7 @@ paths:
   /institucional/reportes/{folio}/duplicado:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: marcarDuplicado
       summary: Marcar como duplicado
       description: Recibido → Duplicado. NoProcesable si el principal no es de la misma organización o es el mismo
@@ -1087,7 +1089,7 @@ paths:
   /institucional/reportes/{folio}/asignacion:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: asignarReporte
       summary: Asignar o reasignar a un área
       description: Validado → Asignado (coordinación) o reasignación Asignado → Asignado con justificación.
@@ -1130,7 +1132,7 @@ paths:
   /institucional/reportes/{folio}/inicio-atencion:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: iniciarAtencion
       summary: Pasar a En atención
       description: Asignado → En atención, o Reabierto → En atención.
@@ -1162,7 +1164,7 @@ paths:
   /institucional/reportes/{folio}/resolucion:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: resolverReporte
       summary: Registrar la resolución
       description: En atención → Resuelto.
@@ -1202,7 +1204,7 @@ paths:
   /institucional/reportes/{folio}/organizaciones-redireccion:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: listarDestinosRedireccion
       summary: Organizaciones a las que se puede redirigir
       description: Organizaciones activas con cobertura en la ubicación del reporte, sin la organización
@@ -1235,7 +1237,7 @@ paths:
   /institucional/reportes/{folio}/redireccion:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: redirigirReporte
       summary: Redirigir a otra organización
       description: 'Recibido → Recibido en la organización destino, o → Canalización externa si es externa.
@@ -1281,7 +1283,7 @@ paths:
   /institucional/reportes/{folio}/senalamientos:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: senalarCuenta
       summary: Señalar posible abuso de la cuenta
       description: 'No cambia el estado del reporte; queda pendiente de revisión del administrador.
@@ -1318,7 +1320,7 @@ paths:
   /institucional/reportes/{folio}/evidencias:
     post:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: adjuntarEvidencia
       summary: Adjuntar evidencia de atención
       x-casos-uso:
@@ -1364,7 +1366,7 @@ paths:
   /institucional/mapa:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: obtenerMapaReportes
       summary: Reportes en mapa
       x-casos-uso:
@@ -1398,7 +1400,7 @@ paths:
   /institucional/categorias:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: listarCategoriasInstitucional
       summary: Catálogo para confirmar o corregir la categoría
       x-casos-uso:
@@ -1425,7 +1427,7 @@ paths:
   /institucional/areas:
     get:
       tags:
-      - Atención institucional
+      - Reportes institucionales
       operationId: listarAreasInstitucional
       summary: Áreas activas de la organización
       x-casos-uso:
@@ -1452,7 +1454,7 @@ paths:
   /institucional/estadisticas:
     get:
       tags:
-      - Estadísticas e informes
+      - Indicadores e informes
       operationId: obtenerEstadisticas
       summary: Indicadores del periodo
       description: El personal de área solo obtiene los de su área. El periodo abarca como máximo 366 días.
@@ -1498,7 +1500,7 @@ paths:
   /institucional/informes:
     post:
       tags:
-      - Estadísticas e informes
+      - Indicadores e informes
       operationId: generarInforme
       summary: Generar y descargar un informe
       description: Registra quién lo generó y cuándo. No incluye datos personales de ciudadanos.
@@ -1537,7 +1539,7 @@ paths:
   /organizacion/areas:
     get:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: listarAreas
       summary: Áreas de la organización
       x-casos-uso:
@@ -1562,7 +1564,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: crearArea
       summary: Crear un área
       x-casos-uso:
@@ -1596,7 +1598,7 @@ paths:
   /organizacion/areas/{id}:
     patch:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: actualizarArea
       summary: Editar o desactivar un área
       x-casos-uso:
@@ -1634,7 +1636,7 @@ paths:
   /organizacion/usuarios:
     get:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: listarUsuarios
       summary: Personal de la organización
       x-casos-uso:
@@ -1659,7 +1661,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: crearUsuario
       summary: Crear una cuenta de personal
       x-casos-uso:
@@ -1695,7 +1697,7 @@ paths:
   /organizacion/usuarios/{id}:
     patch:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: actualizarUsuario
       summary: Editar, cambiar de área o desactivar
       x-casos-uso:
@@ -1733,7 +1735,7 @@ paths:
   /organizacion/usuarios/{id}/credencial-temporal:
     post:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: restablecerCredencialUsuario
       summary: Restablecer la credencial de un miembro del personal
       description: Recuperación de contraseña del personal de área (CU-04 FA-01).
@@ -1762,7 +1764,7 @@ paths:
   /organizacion/semaforo:
     get:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: obtenerSemaforo
       summary: Tiempos objetivo del semáforo
       x-casos-uso:
@@ -1787,7 +1789,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     put:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: configurarSemaforo
       summary: Configurar los tiempos objetivo
       description: 'La lista reemplaza toda la configuración de la organización; un estado que no se envíe
@@ -1827,7 +1829,7 @@ paths:
   /organizacion/correspondencia:
     get:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: obtenerCorrespondencia
       summary: Correspondencia categoría → área vigente
       x-casos-uso:
@@ -1852,7 +1854,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     put:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: confirmarCorrespondencia
       summary: Confirmar la correspondencia
       description: Activa las reglas con área destino; ninguna propuesta se activa sin esta confirmación (CU-22
@@ -1891,7 +1893,7 @@ paths:
   /organizacion/correspondencia/propuesta:
     post:
       tags:
-      - Configuración institucional
+      - Ajustes institucionales
       operationId: proponerCorrespondencia
       summary: Pedir a la IA una propuesta categoría → área
       description: 'Usa las funciones capturadas de cada área activa. No guarda nada: lo propuesto llega con
@@ -1923,7 +1925,7 @@ paths:
   /admin/organizaciones:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarOrganizaciones
       summary: Organizaciones
       x-casos-uso:
@@ -1948,7 +1950,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearOrganizacion
       summary: Registrar una organización
       x-casos-uso:
@@ -1982,7 +1984,7 @@ paths:
   /admin/organizaciones/{id}:
     patch:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: actualizarOrganizacion
       summary: Editar o desactivar una organización
       x-casos-uso:
@@ -2018,7 +2020,7 @@ paths:
   /admin/organizaciones/{id}/coordinacion:
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearCuentaCoordinacion
       summary: Crear la cuenta inicial de coordinación
       x-casos-uso:
@@ -2056,7 +2058,7 @@ paths:
   /admin/organizaciones/{id}/plantilla:
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: aplicarPlantilla
       summary: Cargar la plantilla municipal
       description: Crea las áreas estándar y su correspondencia en la organización (CU-22, paso 1).
@@ -2089,7 +2091,7 @@ paths:
   /admin/plantilla:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: obtenerPlantilla
       summary: Consultar la plantilla municipal
       x-casos-uso:
@@ -2115,7 +2117,7 @@ paths:
   /admin/categorias:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarCategorias
       summary: Categorías y subcategorías
       x-casos-uso:
@@ -2140,7 +2142,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearCategoria
       summary: Crear categoría o subcategoría
       x-casos-uso:
@@ -2174,7 +2176,7 @@ paths:
   /admin/categorias/{id}:
     patch:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: actualizarCategoria
       summary: Editar o desactivar
       x-casos-uso:
@@ -2212,7 +2214,7 @@ paths:
   /admin/zonas:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarZonas
       summary: Zonas de cobertura
       x-casos-uso:
@@ -2237,7 +2239,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearZona
       summary: Registrar una zona (GeoJSON)
       description: 'NoProcesable: geometría inválida (CU-15 EX).'
@@ -2273,7 +2275,7 @@ paths:
   /admin/zonas/{id}:
     patch:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: actualizarZona
       summary: Editar, redibujar o desactivar una zona
       x-casos-uso:
@@ -2311,7 +2313,7 @@ paths:
   /admin/zonas/{id}/organizaciones:
     put:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: definirCoberturaZona
       summary: Definir las organizaciones con cobertura
       x-casos-uso:
@@ -2348,7 +2350,7 @@ paths:
   /admin/reglas:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarReglas
       summary: Reglas de canalización
       x-casos-uso:
@@ -2379,7 +2381,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearRegla
       summary: Crear una regla
       x-casos-uso:
@@ -2413,7 +2415,7 @@ paths:
   /admin/reglas/{id}:
     patch:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: actualizarRegla
       summary: Editar, cerrar vigencia o desactivar
       x-casos-uso:
@@ -2451,7 +2453,7 @@ paths:
   /admin/canales-externos:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarCanalesExternos
       summary: Canales oficiales externos
       x-casos-uso:
@@ -2476,7 +2478,7 @@ paths:
           $ref: '#/components/responses/Prohibido'
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: crearCanalExterno
       summary: Registrar un canal oficial
       x-casos-uso:
@@ -2510,7 +2512,7 @@ paths:
   /admin/canales-externos/{id}:
     patch:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: actualizarCanalExterno
       summary: Editar o desactivar un canal
       x-casos-uso:
@@ -2546,7 +2548,7 @@ paths:
   /admin/senalamientos:
     get:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: listarSenalamientos
       summary: Señalamientos de cuentas
       x-casos-uso:
@@ -2582,7 +2584,7 @@ paths:
   /admin/senalamientos/{id}/resolucion:
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: resolverSenalamiento
       summary: Desestimar o suspender la cuenta
       description: 'Al suspender se avisa al ciudadano y se registra la decisión; los reportes no se modifican.
@@ -2623,7 +2625,7 @@ paths:
   /admin/ciudadanos/{id}/suspension/levantamiento:
     post:
       tags:
-      - Administración técnica
+      - Administrador
       operationId: levantarSuspension
       summary: Levantar la suspensión de una cuenta ciudadana
       description: 'Registra quién la levantó, cuándo, el motivo y la suspensión interrumpida, y avisa al

@@ -73,26 +73,19 @@ administrador.
 
 ## 3. Web (Angular)
 
+La web ya es un proyecto completo de Angular 22. Los proyectos de frontend forman un **workspace de
+npm** en la raíz (`package.json`): las dependencias se instalan en `taan/node_modules`, donde también
+las encuentra el código compartido de `taan-comun/` (alias `@taan/comun` en `tsconfig.json`).
+
 ```bash
-npm install -g @angular/cli
-ng new taan-web --routing --style=scss --ssr=false
+npm install            # en la raíz del repositorio; crea src/environments/environment.local.ts
 cd taan-web
-ng generate environments
+npm start              # http://localhost:4200 (el backend debe correr en http://localhost:8080)
+npm test               # pruebas unitarias (Vitest), incluidas las de taan-comun
 ```
 
-1. **Copia encima la carpeta `src` de `taan-web/`** de este paquete (reemplaza `app.routes.ts` y
-   los archivos de `environments`).
-2. En `src/app/app.config.ts` agrega el cliente HTTP con el interceptor de sesión dentro de `providers`:
-
-   ```ts
-   import { provideHttpClient, withInterceptors } from '@angular/common/http';
-   import { authInterceptor } from './core/auth/auth.interceptor';
-
-   // dentro de providers: [ ... ]
-   provideHttpClient(withInterceptors([authInterceptor])),
-   ```
-
-3. `ng serve` y abre http://localhost:4200
+`environment.local.ts` guarda las claves públicas de navegador (por ahora la site key de Turnstile;
+la plantilla trae la clave de prueba de Cloudflare). No se sube al repositorio.
 
 ## 4. App móvil (Ionic + Capacitor)
 
@@ -104,10 +97,13 @@ npm install @capacitor/geolocation @capacitor/camera @capacitor/push-notificatio
 ```
 
 1. **Copia encima `src` y `capacitor.config.ts` de `taan-app/`** de este paquete.
-2. Registra el mismo interceptor que en la web: en `src/main.ts`, dentro de los `providers` de
-   `bootstrapApplication`, agrega `provideHttpClient(withInterceptors([authInterceptor]))`
-   con los mismos `import` del paso 3.
-3. Para probar en Android:
+2. Agrega `taan-app` a `workspaces` en el `package.json` de la raíz y el alias
+   `"@taan/comun/*": ["../taan-comun/src/*"]` en su `tsconfig.json`. Usa la misma versión de
+   Angular que la web: si no, el código compartido cargaría dos copias de Angular.
+3. En `src/main.ts`, dentro de los `providers` de `bootstrapApplication`, registra el cliente y la
+   sesión compartidos: `provideHttpClient(withInterceptors([authInterceptor]))` y
+   `provideApi(environment.apiUrl)` (de `@taan/comun/sesion/auth.interceptor` y `@taan/comun/api`).
+4. Para probar en Android:
 
    ```bash
    ionic build
@@ -118,13 +114,15 @@ npm install @capacitor/geolocation @capacitor/camera @capacitor/push-notificatio
 Las notificaciones push requieren además un proyecto de Firebase y su archivo
 `google-services.json`; eso corresponde al incremento 7.
 
-## 5. Opcional: generar el código que llama a la API
+## 5. Cliente de la API
 
-Con el contrato se puede generar automáticamente el cliente para Angular e Ionic
-(requiere Java instalado):
+El cliente de Angular se genera desde el contrato en `taan-comun/src/api` y se sube al repositorio,
+así que compilar la web o la app no requiere Java. Cuando cambie `docs/TAAN_API.yaml`, regenéralo
+(requiere Java):
 
 ```bash
-npx @openapitools/openapi-generator-cli generate -i ../docs/TAAN_API.yaml -g typescript-angular -o src/app/api
+cd taan-web
+npm run api
 ```
 
 ## Pendientes conocidos (marcados en el código)

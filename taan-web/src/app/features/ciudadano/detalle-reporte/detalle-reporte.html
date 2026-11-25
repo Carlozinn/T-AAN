@@ -1,0 +1,146 @@
+<p><a routerLink="/mis-reportes">← Mis reportes</a></p>
+
+@if (errorCarga(); as mensaje) {
+  <p class="aviso-error" role="alert">{{ mensaje }}</p>
+} @else if (reporte.hasValue()) {
+  @let r = reporte.value();
+  <h1>Folio {{ r.folio }}</h1>
+  <p class="estado">{{ r.estadoTexto }}</p>
+
+  <dl class="datos">
+    <div>
+      <dt>Categoría</dt>
+      <dd>{{ r.categoria ?? 'Sin categoría todavía' }}</dd>
+    </div>
+    <div>
+      <dt>Enviado el</dt>
+      <dd>{{ r.creadoEn | date: 'medium' }}</dd>
+    </div>
+    @if (r.organizacion) {
+      <div>
+        <dt>Lo atiende</dt>
+        <dd>{{ r.organizacion }}@if (r.area) { · {{ r.area }} }</dd>
+      </div>
+    }
+  </dl>
+
+  @if (confirmado()) {
+    <p class="aviso-exito" role="status">Gracias por confirmar que el problema se resolvió.</p>
+  }
+  @if (errorAccion(); as mensaje) {
+    <p class="aviso-error" role="alert">{{ mensaje }}</p>
+  }
+
+  @if (puedeResponder()) {
+    <section class="tarjeta" aria-labelledby="titulo-respuesta">
+      <h2 id="titulo-respuesta">¿Se resolvió el problema?</h2>
+      @if (r.reapertura?.venceEn; as vence) {
+        <p class="ayuda">Si sigue igual, puedes reabrir el reporte una sola vez, hasta el {{ vence | date: 'longDate' }}.</p>
+      }
+      @if (reabriendo()) {
+        <form [formGroup]="reapertura" (ngSubmit)="reabrir(r.folio)" novalidate>
+          <div class="campo">
+            <label for="motivo">¿Qué sigue sin resolverse?</label>
+            <textarea
+              id="motivo"
+              rows="4"
+              formControlName="motivo"
+              aria-describedby="motivo-error"
+              [attr.aria-invalid]="reapertura.controls.motivo.touched && reapertura.controls.motivo.invalid"
+            ></textarea>
+            <taan-error-campo id="motivo-error" [control]="reapertura.controls.motivo" />
+          </div>
+          <div class="acciones">
+            <button class="boton" type="submit" [disabled]="enviando()">Reabrir reporte</button>
+            <button class="boton-secundario" type="button" (click)="reabriendo.set(false)">Cancelar</button>
+          </div>
+        </form>
+      } @else {
+        <div class="acciones">
+          <button class="boton" type="button" [disabled]="enviando()" (click)="confirmar(r.folio)">Sí, se resolvió</button>
+          <button class="boton-secundario" type="button" (click)="reabriendo.set(true)">No, sigue igual</button>
+        </div>
+      }
+    </section>
+  }
+
+  @if (r.rechazo; as rechazo) {
+    <section class="aviso" aria-labelledby="titulo-rechazo">
+      <h2 id="titulo-rechazo">Por qué no se atenderá</h2>
+      <p>{{ motivoRechazo(rechazo.motivo) }}</p>
+      @if (rechazo.texto) {
+        <p>{{ rechazo.texto }}</p>
+      }
+      @if (rechazo.contactoArea?.telefono || rechazo.contactoArea?.correo) {
+        <p>Si tienes dudas, comunícate con el área:</p>
+        <ul>
+          @if (rechazo.contactoArea?.telefono; as telefono) {
+            <li>Teléfono: <a [href]="'tel:' + telefono">{{ telefono }}</a></li>
+          }
+          @if (rechazo.contactoArea?.correo; as correo) {
+            <li>Correo: <a [href]="'mailto:' + correo">{{ correo }}</a></li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  @if (r.reportePrincipal; as principal) {
+    <section class="tarjeta" aria-labelledby="titulo-principal">
+      <h2 id="titulo-principal">Seguimiento del reporte principal</h2>
+      <p>
+        Alguien más ya había reportado este problema, así que se atiende con el folio
+        <strong>{{ principal.folio }}</strong>. Su estado actual es: <strong>{{ principal.estadoTexto }}</strong>.
+      </p>
+      <taan-historial [eventos]="principal.historial ?? []" />
+    </section>
+  }
+
+  @if (r.canalesExternos?.length) {
+    <section class="tarjeta" aria-labelledby="titulo-canales">
+      <h2 id="titulo-canales">Dónde dar seguimiento</h2>
+      <p>Este problema lo atiende una institución que todavía no recibe reportes en T’AAN. Comunícate por sus canales oficiales:</p>
+      <ul class="canales">
+        @for (canal of r.canalesExternos; track canal.id) {
+          <li>
+            @if (canal.organizacion) {
+              <strong>{{ canal.organizacion }}:</strong>
+            }
+            @if (enlaceCanal(canal); as enlace) {
+              <a [href]="enlace" target="_blank" rel="noopener noreferrer">{{ canal.valor }}</a>
+            } @else {
+              {{ canal.valor }}
+            }
+            <span class="ayuda">Fuente: {{ canal.fuenteVerificacion }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <h2>Descripción</h2>
+  <p class="descripcion">{{ r.descripcion }}</p>
+
+  @if (r.fotos?.length) {
+    <h2>Fotografías</h2>
+    <div class="fotos">
+      @for (foto of r.fotos; track foto.id; let i = $index) {
+        <taan-img-protegida [archivoId]="foto.id" [alt]="'Fotografía ' + (i + 1) + ' del reporte'" />
+      }
+    </div>
+  }
+
+  @if (r.ubicacion; as u) {
+    <h2>Ubicación</h2>
+    <p>
+      <a [href]="'https://www.google.com/maps?q=' + u.latitud + ',' + u.longitud" target="_blank" rel="noopener noreferrer">
+        Ver la ubicación en el mapa
+      </a>
+    </p>
+  }
+
+  <h2>Historial</h2>
+  <taan-historial [eventos]="r.historial ?? []" />
+} @else {
+  <p role="status">Cargando el reporte…</p>
+}

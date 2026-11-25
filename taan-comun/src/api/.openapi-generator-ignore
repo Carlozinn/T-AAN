@@ -1,0 +1,4 @@
+# Archivos del generador que T'AAN no usa.
+git_push.sh
+README.md
+.gitignore

@@ -1,0 +1,31 @@
+<h1>Mis reportes</h1>
+
+@if (error(); as mensaje) {
+  <div class="aviso-error" role="alert">
+    <p>{{ mensaje }}</p>
+    <button class="boton-secundario" type="button" (click)="cargarMas()">Intentar de nuevo</button>
+  </div>
+}
+
+@if (cargado() && reportes().length === 0) {
+  <p class="tarjeta">Aún no tienes reportes. Cuando envíes uno, aquí podrás seguir su avance.</p>
+} @else {
+  <ul class="lista">
+    @for (reporte of reportes(); track reporte.folio) {
+      <li>
+        <a class="tarjeta reporte" [routerLink]="['/mis-reportes', reporte.folio]">
+          <span class="folio">Folio {{ reporte.folio }}</span>
+          <span class="estado">{{ reporte.estadoTexto }}</span>
+          <span>{{ reporte.categoria ?? 'Sin categoría todavía' }}</span>
+          <span class="ayuda">Actualizado el {{ reporte.actualizadoEn | date: 'medium' }}</span>
+        </a>
+      </li>
+    }
+  </ul>
+}
+
+@if (cargando()) {
+  <p role="status">Cargando tus reportes…</p>
+} @else if (hayMas()) {
+  <button class="boton-secundario" type="button" (click)="cargarMas()">Ver más reportes</button>
+}

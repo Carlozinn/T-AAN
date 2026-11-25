@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/@openapitools/openapi-generator-cli/config.schema.json",
+  "spaces": 2,
+  "generator-cli": {
+    "version": "7.27.0",
+    "generators": {
+      "taan": {
+        "generatorName": "typescript-angular",
+        "inputSpec": "../docs/TAAN_API.yaml",
+        "output": "../taan-comun/src/api",
+        "additionalProperties": {
+          "ngVersion": "22.3.0",
+          "fileNaming": "kebab-case",
+          "enumPropertyNaming": "original",
+          "supportsES6": true
+        }
+      }
+    }
+  }
+}

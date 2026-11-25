@@ -1,0 +1,8 @@
+{
+  "name": "taan",
+  "private": true,
+  "description": "Workspace de npm del frontend: las dependencias de taan-web (y luego taan-app) se instalan en la raíz, donde también las encuentra taan-comun.",
+  "workspaces": [
+    "taan-web"
+  ]
+}

@@ -1,0 +1,59 @@
+<main class="contenedor">
+  <h1>Recupera tu acceso</h1>
+  <div class="tarjeta">
+    @if (error(); as mensaje) {
+      <p class="aviso-error" role="alert">{{ mensaje }}</p>
+    }
+    @if (token(); as token) {
+      @if (listo()) {
+        <p class="aviso-exito" role="status">Tu contraseña se actualizó. Ya puedes iniciar sesión con ella.</p>
+        <a class="boton" routerLink="/acceso">Iniciar sesión</a>
+      } @else {
+        <form [formGroup]="restablecimiento" (ngSubmit)="restablecer(token)" novalidate>
+          <div class="campo">
+            <label for="nueva-password">Nueva contraseña</label>
+            <input
+              id="nueva-password"
+              type="password"
+              formControlName="nuevaPassword"
+              autocomplete="new-password"
+              aria-describedby="nueva-password-ayuda nueva-password-error"
+              [attr.aria-invalid]="
+                restablecimiento.controls.nuevaPassword.touched && restablecimiento.controls.nuevaPassword.invalid
+              "
+            />
+            <p id="nueva-password-ayuda" class="ayuda">Al menos 8 caracteres.</p>
+            <taan-error-campo id="nueva-password-error" [control]="restablecimiento.controls.nuevaPassword" />
+          </div>
+          <button class="boton" type="submit" [disabled]="enviando()">Guardar contraseña</button>
+        </form>
+        <p><a routerLink="/recuperacion">Pedir un enlace nuevo</a></p>
+      }
+    } @else {
+      @if (listo()) {
+        <p class="aviso-exito" role="status">
+          Si ese correo tiene una cuenta, te enviamos un enlace para crear una nueva contraseña. Revisa también la
+          carpeta de correo no deseado.
+        </p>
+      } @else {
+        <p>Escribe el correo de tu cuenta y te enviaremos un enlace para crear una nueva contraseña.</p>
+        <form [formGroup]="solicitud" (ngSubmit)="solicitar()" novalidate>
+          <div class="campo">
+            <label for="correo">Correo electrónico</label>
+            <input
+              id="correo"
+              type="email"
+              formControlName="correo"
+              autocomplete="email"
+              aria-describedby="correo-error"
+              [attr.aria-invalid]="solicitud.controls.correo.touched && solicitud.controls.correo.invalid"
+            />
+            <taan-error-campo id="correo-error" [control]="solicitud.controls.correo" />
+          </div>
+          <button class="boton" type="submit" [disabled]="enviando()">Enviar enlace</button>
+        </form>
+      }
+      <p><a routerLink="/acceso">Volver a iniciar sesión</a></p>
+    }
+  </div>
+</main>

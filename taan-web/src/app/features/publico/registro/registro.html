@@ -1,0 +1,90 @@
+<main class="contenedor">
+  @if (enviadoA(); as correo) {
+    <h1>Revisa tu correo</h1>
+    <div class="tarjeta">
+      <p role="status">
+        Te enviamos un enlace a <strong>{{ correo }}</strong>. Ábrelo para confirmar tu cuenta; después podrás enviar
+        reportes.
+      </p>
+      <p class="ayuda">¿No te llegó? Revisa la carpeta de correo no deseado o pide otro enlace.</p>
+      <taan-reenvio-verificacion [correo]="correo" />
+      <p><a routerLink="/acceso">Ir a iniciar sesión</a></p>
+    </div>
+  } @else {
+    <h1>Crea tu cuenta</h1>
+    <div class="tarjeta">
+      @if (error(); as mensaje) {
+        <p class="aviso-error" role="alert">{{ mensaje }}</p>
+      }
+      <form [formGroup]="formulario" (ngSubmit)="registrar()" novalidate>
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input
+            id="nombre"
+            formControlName="nombre"
+            autocomplete="name"
+            aria-describedby="nombre-error"
+            [attr.aria-invalid]="formulario.controls.nombre.touched && formulario.controls.nombre.invalid"
+          />
+          <taan-error-campo id="nombre-error" [control]="formulario.controls.nombre" />
+        </div>
+        <div class="campo">
+          <label for="correo">Correo electrónico</label>
+          <input
+            id="correo"
+            type="email"
+            formControlName="correo"
+            autocomplete="email"
+            aria-describedby="correo-error"
+            [attr.aria-invalid]="formulario.controls.correo.touched && formulario.controls.correo.invalid"
+          />
+          <taan-error-campo id="correo-error" [control]="formulario.controls.correo" />
+        </div>
+        <div class="campo">
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            type="password"
+            formControlName="password"
+            autocomplete="new-password"
+            aria-describedby="password-ayuda password-error"
+            [attr.aria-invalid]="formulario.controls.password.touched && formulario.controls.password.invalid"
+          />
+          <p id="password-ayuda" class="ayuda">Al menos 8 caracteres.</p>
+          <taan-error-campo id="password-error" [control]="formulario.controls.password" />
+        </div>
+        <div class="trampa" aria-hidden="true">
+          <label for="campo-auxiliar">No llenes este campo</label>
+          <input id="campo-auxiliar" formControlName="campoAuxiliar" tabindex="-1" autocomplete="off" />
+        </div>
+        <div class="campo">
+          <div class="campo-casilla">
+            <input
+              id="aviso"
+              type="checkbox"
+              formControlName="aceptaAvisoPrivacidad"
+              aria-describedby="aviso-error"
+              [attr.aria-invalid]="
+                formulario.controls.aceptaAvisoPrivacidad.touched && formulario.controls.aceptaAvisoPrivacidad.invalid
+              "
+            />
+            <label for="aviso">Acepto el aviso de privacidad de T’AAN.</label>
+          </div>
+          @if (formulario.controls.aceptaAvisoPrivacidad.touched && formulario.controls.aceptaAvisoPrivacidad.invalid) {
+            <span id="aviso-error" class="error-campo">Para crear tu cuenta necesitas aceptar el aviso de privacidad.</span>
+          }
+        </div>
+        <div class="campo">
+          <taan-captcha (token)="captchaToken.set($event)" />
+          @if (faltaCaptcha() && !captchaToken()) {
+            <span class="error-campo">Completa la verificación para continuar.</span>
+          }
+        </div>
+        <button class="boton" type="submit" [disabled]="enviando()">
+          {{ enviando() ? 'Creando cuenta…' : 'Crear cuenta' }}
+        </button>
+      </form>
+      <p>¿Ya tienes cuenta? <a routerLink="/acceso">Inicia sesión</a></p>
+    </div>
+  }
+</main>

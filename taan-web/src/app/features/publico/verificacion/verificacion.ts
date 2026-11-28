@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AccesoService } from '@taan/comun/api';
 import { leerApiError } from '@taan/comun/errores/api-error';
 import { mensajeDeError } from '@taan/comun/errores/mensajes-error';
-import { ReenvioVerificacion } from '../reenvio-verificacion/reenvio-verificacion';
+import { ReenvioVerificacion } from '../../../compartido/reenvio-verificacion';
 
 /** Destino del enlace del correo de verificación (/verificacion?token=…, CU-24). */
 @Component({

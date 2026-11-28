@@ -21,6 +21,8 @@ import { destinoSeguro } from '../../../core/auth/rutas-acceso';
 export class Acceso {
   /** Query param «volver». */
   readonly volver = input<string>();
+  /** Query param que llega después de eliminar la cuenta. */
+  readonly cuentaEliminada = input<string>();
 
   private readonly auth = inject(AccesoService);
   private readonly sesion = inject(SesionService);
@@ -46,7 +48,7 @@ export class Acceso {
       .subscribe({
         next: (sesion) => {
           this.sesion.iniciar(sesion);
-          this.router.navigateByUrl(destinoSeguro(this.volver(), '/mis-reportes'));
+          this.router.navigateByUrl(destinoSeguro(this.volver(), '/reportar'));
         },
         error: (e) => {
           const error = leerApiError(e);

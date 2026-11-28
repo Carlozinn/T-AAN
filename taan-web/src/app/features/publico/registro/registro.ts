@@ -9,7 +9,7 @@ import { marcarErroresDeCampo } from '@taan/comun/errores/errores-formulario';
 import { mensajeDeError } from '@taan/comun/errores/mensajes-error';
 import { Captcha } from '../../../compartido/captcha';
 import { ErrorCampo } from '../../../compartido/error-campo';
-import { ReenvioVerificacion } from '../reenvio-verificacion/reenvio-verificacion';
+import { ReenvioVerificacion } from '../../../compartido/reenvio-verificacion';
 
 /**
  * Registro ciudadano con correo (CU-24): nombre, correo, contraseña, aviso de privacidad y

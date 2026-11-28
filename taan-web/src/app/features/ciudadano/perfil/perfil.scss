@@ -1,0 +1,27 @@
+section {
+  margin-bottom: 1rem;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.zona-peligro {
+  border-color: var(--color-error);
+}
+
+.boton-peligro {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.65rem 1.1rem;
+  border-radius: 0.5rem;
+  border: 2px solid var(--color-error);
+  background: var(--color-error);
+  color: #fff;
+  cursor: pointer;
+}
+
+.boton-peligro:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

@@ -1,0 +1,142 @@
+<h1>Mi perfil</h1>
+
+@if (perfil.perfil(); as p) {
+  <section class="tarjeta" aria-labelledby="titulo-datos">
+    <h2 id="titulo-datos">Tus datos</h2>
+    <p class="ayuda">
+      Correo: <strong>{{ p.correo }}</strong>
+      @if (p.metodoAcceso === 'google') {
+        (entras con Google)
+      }
+    </p>
+    @if (guardado.listo()) {
+      <p class="aviso-exito" role="status">Guardamos tus cambios.</p>
+    }
+    @if (guardado.error(); as mensaje) {
+      <p class="aviso-error" role="alert">{{ mensaje }}</p>
+    }
+    <form [formGroup]="datos" (ngSubmit)="guardar()" novalidate>
+      <div class="campo">
+        <label for="nombre">Nombre</label>
+        <input
+          id="nombre"
+          formControlName="nombre"
+          autocomplete="name"
+          aria-describedby="nombre-error"
+          [attr.aria-invalid]="datos.controls.nombre.touched && datos.controls.nombre.invalid"
+        />
+        <taan-error-campo id="nombre-error" [control]="datos.controls.nombre" />
+      </div>
+      <div class="campo">
+        <label for="telefono">Teléfono</label>
+        <input
+          id="telefono"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="tel-national"
+          formControlName="telefono"
+          aria-describedby="telefono-ayuda telefono-error"
+          [attr.aria-invalid]="datos.controls.telefono.touched && datos.controls.telefono.invalid"
+        />
+        <p id="telefono-ayuda" class="ayuda">10 dígitos, sin espacios. Solo se usa si el área necesita más datos.</p>
+        <taan-error-campo id="telefono-error" [control]="datos.controls.telefono" />
+      </div>
+      <div class="campo-casilla">
+        <input id="avisos" type="checkbox" formControlName="avisosCorreo" />
+        <label for="avisos">Recibir por correo los avisos sobre mis reportes</label>
+      </div>
+      <div>
+        <button class="boton" type="submit" [disabled]="guardado.enviando()">Guardar cambios</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="tarjeta" aria-labelledby="titulo-estado">
+    <h2 id="titulo-estado">Estado de la cuenta</h2>
+    @if (suspension(); as texto) {
+      <p class="aviso">{{ texto }} Puedes consultar tus reportes, pero no crear ni reabrir reportes.</p>
+    } @else {
+      <p>Activa.</p>
+    }
+  </section>
+
+  <section class="tarjeta" aria-labelledby="titulo-password">
+    <h2 id="titulo-password">Contraseña</h2>
+    @if (p.metodoAcceso === 'google') {
+      <p>Entras con tu cuenta de Google, así que no usas una contraseña de T’AAN.</p>
+    } @else {
+      @if (cambioPassword.listo()) {
+        <p class="aviso-exito" role="status">Tu contraseña se actualizó.</p>
+      }
+      @if (cambioPassword.error(); as mensaje) {
+        <p class="aviso-error" role="alert">{{ mensaje }}</p>
+      }
+      <form [formGroup]="password" (ngSubmit)="cambiarPassword()" novalidate>
+        <div class="campo">
+          <label for="password-actual">Contraseña actual</label>
+          <input
+            id="password-actual"
+            type="password"
+            formControlName="passwordActual"
+            autocomplete="current-password"
+            aria-describedby="password-actual-error"
+            [attr.aria-invalid]="password.controls.passwordActual.touched && password.controls.passwordActual.invalid"
+          />
+          <taan-error-campo id="password-actual-error" [control]="password.controls.passwordActual" />
+        </div>
+        <div class="campo">
+          <label for="nueva-password">Nueva contraseña</label>
+          <input
+            id="nueva-password"
+            type="password"
+            formControlName="nuevaPassword"
+            autocomplete="new-password"
+            aria-describedby="nueva-password-ayuda nueva-password-error"
+            [attr.aria-invalid]="password.controls.nuevaPassword.touched && password.controls.nuevaPassword.invalid"
+          />
+          <p id="nueva-password-ayuda" class="ayuda">Al menos 8 caracteres.</p>
+          <taan-error-campo id="nueva-password-error" [control]="password.controls.nuevaPassword" />
+        </div>
+        <div>
+          <button class="boton" type="submit" [disabled]="cambioPassword.enviando()">Cambiar contraseña</button>
+        </div>
+      </form>
+    }
+  </section>
+
+  <section class="tarjeta zona-peligro" aria-labelledby="titulo-eliminar">
+    <h2 id="titulo-eliminar">Eliminar mi cuenta</h2>
+    <p>
+      Se borran tu nombre, correo y teléfono, y dejas de recibir avisos. Tus reportes se conservan sin tus datos
+      personales para que las instituciones puedan seguir atendiéndolos. Esta acción no se puede deshacer.
+    </p>
+    @if (!confirmandoBaja()) {
+      <button class="boton-peligro" type="button" (click)="confirmandoBaja.set(true)">Eliminar mi cuenta</button>
+    } @else {
+      @if (baja.error(); as mensaje) {
+        <p class="aviso-error" role="alert">{{ mensaje }}</p>
+      }
+      <form [formGroup]="eliminacion" (ngSubmit)="eliminar()" novalidate>
+        <div class="campo">
+          <label for="confirmacion">Para confirmar, escribe ELIMINAR</label>
+          <input
+            id="confirmacion"
+            formControlName="confirmacion"
+            autocomplete="off"
+            aria-describedby="confirmacion-error"
+            [attr.aria-invalid]="eliminacion.controls.confirmacion.touched && eliminacion.controls.confirmacion.invalid"
+          />
+          @if (eliminacion.controls.confirmacion.touched && eliminacion.controls.confirmacion.invalid) {
+            <span id="confirmacion-error" class="error-campo">Escribe ELIMINAR, en mayúsculas, para confirmar.</span>
+          }
+        </div>
+        <div class="acciones">
+          <button class="boton-peligro" type="submit" [disabled]="baja.enviando()">Eliminar definitivamente</button>
+          <button class="boton-secundario" type="button" (click)="confirmandoBaja.set(false)">Cancelar</button>
+        </div>
+      </form>
+    }
+  </section>
+} @else {
+  <p role="status">Cargando tu perfil…</p>
+}

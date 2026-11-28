@@ -12,8 +12,8 @@ const MENSAJES: Record<string, string> = {
   CORREO_REGISTRADO: 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu acceso.',
   ENLACE_VENCIDO: 'El enlace ya no es válido. Solicita uno nuevo.',
   REFRESCO_INVALIDO: 'Tu sesión terminó. Vuelve a iniciar sesión.',
-  TELEFONO_REQUERIDO: 'Agrega tu número de teléfono en tu perfil antes de enviar el reporte.',
-  CUENTA_SUSPENDIDA: 'Tu cuenta está suspendida temporalmente. Puedes consultar tus reportes, pero no crear nuevos.',
+  TELEFONO_REQUERIDO: 'Agrega tu número de teléfono para que el área pueda contactarte si necesita más datos.',
+  CORREO_NO_VERIFICADO: 'Confirma tu correo con el enlace que te enviamos para poder enviar reportes.',
   LIMITE_EXCEDIDO:
     'Por seguridad, espera unos minutos antes de volver a intentarlo. Lo que escribiste se conservó. ' +
     'Si es una emergencia, llama al 911.',

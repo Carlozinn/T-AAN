@@ -35,6 +35,13 @@ describe('SesionService', () => {
     expect(localStorage.getItem('taan.sesion')).toBeNull();
   });
 
+  it('descartar borra la sesión local sin llamar al backend', () => {
+    servicio.iniciar(SESION);
+    servicio.descartar();
+    expect(servicio.autenticado()).toBe(false);
+    http.expectNone(`${BASE}/auth/cierre`);
+  });
+
   it('renovar guarda la sesión nueva', () => {
     servicio.iniciar(SESION);
     servicio.renovar().subscribe();

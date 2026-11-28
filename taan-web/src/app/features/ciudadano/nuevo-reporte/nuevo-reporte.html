@@ -1,0 +1,121 @@
+@if (creado(); as reporte) {
+  <section class="tarjeta" aria-labelledby="titulo-creado">
+    <h1 id="titulo-creado">Recibimos tu reporte</h1>
+    <p role="status">
+      Tu folio es <strong class="folio">{{ reporte.folio }}</strong>. Puedes seguir su avance en «Mis reportes».
+    </p>
+    <div class="acciones">
+      <a class="boton" [routerLink]="['/mis-reportes', reporte.folio]">Ver mi reporte</a>
+      <button class="boton-secundario" type="button" (click)="otroReporte()">Enviar otro reporte</button>
+    </div>
+  </section>
+} @else if (perfil.suspendida()) {
+  <h1>Reportar un problema</h1>
+  <p class="aviso">Mientras tu cuenta esté suspendida no puedes enviar reportes. Puedes seguir consultando los que ya enviaste.</p>
+} @else {
+  <h1>Reportar un problema</h1>
+  @if (error(); as mensaje) {
+    <div class="aviso-error" role="alert">
+      <p>{{ mensaje }}</p>
+      @if (correoSinVerificar() && perfil.perfil(); as p) {
+        <taan-reenvio-verificacion [correo]="p.correo" />
+      }
+    </div>
+  }
+
+  <form [formGroup]="formulario" (ngSubmit)="enviar()" novalidate>
+    <div class="campo">
+      <label for="descripcion">¿Qué está pasando?</label>
+      <textarea
+        id="descripcion"
+        rows="4"
+        formControlName="descripcion"
+        aria-describedby="descripcion-ayuda descripcion-error"
+        [attr.aria-invalid]="formulario.controls.descripcion.touched && formulario.controls.descripcion.invalid"
+      ></textarea>
+      <p id="descripcion-ayuda" class="ayuda">Descríbelo con tus palabras; no necesitas saber a quién le corresponde.</p>
+      <taan-error-campo id="descripcion-error" [control]="formulario.controls.descripcion" />
+    </div>
+
+    <fieldset class="campo">
+      <legend>¿Dónde está?</legend>
+      <p class="ayuda">Toca el mapa o arrastra el marcador hasta el lugar del problema.</p>
+      <taan-mapa-ubicacion #mapa [(ubicacion)]="ubicacion" />
+      <div class="acciones">
+        <button class="boton-secundario" type="button" [disabled]="buscandoUbicacion()" (click)="usarMiUbicacion()">
+          {{ buscandoUbicacion() ? 'Buscando tu ubicación…' : 'Usar mi ubicación' }}
+        </button>
+        <button class="boton-secundario" type="button" (click)="mapa.marcarCentro()">Marcar el centro del mapa</button>
+      </div>
+      <div aria-live="polite">
+        @if (avisoUbicacion(); as aviso) {
+          <p class="ayuda">{{ aviso }}</p>
+        }
+        @if (!ubicacion()) {
+          @if (intentoEnvio()) {
+            <span class="error-campo">Marca en el mapa dónde está el problema.</span>
+          }
+        } @else if (cobertura.isLoading()) {
+          <p class="ayuda">Revisando la ubicación…</p>
+        } @else if (fueraDeCobertura()) {
+          <p class="aviso-error">T’AAN todavía no opera en esta ubicación. Si es una emergencia, llama al 911.</p>
+        } @else if (cobertura.hasValue()) {
+          <p class="aviso-exito">Ubicación dentro de la zona de atención{{ cobertura.value().zona ? ': ' + cobertura.value().zona : '' }}.</p>
+        }
+      </div>
+    </fieldset>
+
+    <div class="campo">
+      <label for="fotos">Fotos (opcional, hasta 3)</label>
+      <input
+        id="fotos"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        [disabled]="fotos().length >= 3"
+        (change)="agregarFotos($event)"
+      />
+      @if (avisoFotos(); as aviso) {
+        <span class="error-campo" role="status">{{ aviso }}</span>
+      }
+      @if (fotos().length) {
+        <ul class="fotos">
+          @for (foto of fotos(); track foto.vistaPrevia; let i = $index) {
+            <li>
+              <img [src]="foto.vistaPrevia" [alt]="'Vista previa de la foto ' + (i + 1)" />
+              <button class="boton-secundario" type="button" (click)="quitarFoto(i)">Quitar foto {{ i + 1 }}</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    @if (requiereTelefono()) {
+      <div class="campo">
+        <label for="telefono">Tu teléfono</label>
+        <input
+          id="telefono"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="tel-national"
+          formControlName="telefono"
+          aria-describedby="telefono-ayuda telefono-error"
+          [attr.aria-invalid]="formulario.controls.telefono.touched && formulario.controls.telefono.invalid"
+        />
+        <p id="telefono-ayuda" class="ayuda">
+          10 dígitos, sin espacios. Solo se usa si el área necesita más datos; se guarda en tu perfil.
+        </p>
+        <taan-error-campo id="telefono-error" [control]="formulario.controls.telefono" />
+      </div>
+    }
+
+    <div class="trampa" aria-hidden="true">
+      <label for="campo-auxiliar">No llenes este campo</label>
+      <input id="campo-auxiliar" formControlName="campoAuxiliar" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <button class="boton" type="submit" [disabled]="enviando() || fueraDeCobertura()">
+      {{ enviando() ? 'Enviando…' : 'Enviar reporte' }}
+    </button>
+  </form>
+}

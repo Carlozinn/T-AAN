@@ -41,5 +41,7 @@
   nunca solo por color.
 - Rutas que llegan por correo y deben existir: `/mis-reportes/:folio`, `/verificacion?token=`,
   `/recuperacion?token=`.
-- Claves públicas (Maps, Google client id, Turnstile site key) en `environment.local.ts`, ignorado por git.
+- Claves públicas (Google client id, Turnstile site key) en `environment.local.ts`, ignorado por git.
+- Mapas con Leaflet y teselas de OpenStreetMap, sin clave (`CONFIG_MAPA` en `taan-comun`); para producción
+  con más tráfico solo se cambia la URL de teselas.
 - Cada pantalla o servicio con pruebas (`ng test`); compilar y probar antes de darlo por terminado.

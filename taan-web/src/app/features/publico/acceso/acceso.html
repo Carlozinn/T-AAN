@@ -1,6 +1,9 @@
 <main class="contenedor">
   <h1>Inicia sesión</h1>
   <div class="tarjeta">
+    @if (cuentaEliminada()) {
+      <p class="aviso-exito" role="status">Tu cuenta se eliminó. Tus reportes se conservan sin tus datos personales.</p>
+    }
     @if (error(); as mensaje) {
       <p class="aviso-error" role="alert">{{ mensaje }}</p>
     }

@@ -9,7 +9,7 @@ import { rolGuard } from './core/auth/rol.guard';
  * mostrar ninguna pantalla.
  */
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'mis-reportes' },
+  { path: '', pathMatch: 'full', redirectTo: 'reportar' },
   {
     path: 'institucional',
     loadChildren: () => import('./features/institucional/institucional.routes').then((m) => m.INSTITUCIONAL_ROUTES),

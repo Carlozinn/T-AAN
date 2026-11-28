@@ -27,14 +27,14 @@ describe('Rutas de la app', () => {
   it('la raíz sin sesión lleva al inicio de sesión', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
-    expect(TestBed.inject(Router).url).toBe('/acceso?volver=%2Fmis-reportes');
+    expect(TestBed.inject(Router).url).toBe('/acceso?volver=%2Freportar');
   });
 
-  it('la raíz con sesión ciudadana lleva a Mis reportes', async () => {
+  it('la raíz con sesión ciudadana lleva directo a reportar (mínima interacción)', async () => {
     TestBed.inject(SesionService).iniciar({ accessToken: 'a', refreshToken: 'r', expiraEn: 1, rol: 'ciudadano' });
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
-    expect(TestBed.inject(Router).url).toBe('/mis-reportes');
+    expect(TestBed.inject(Router).url).toBe('/reportar');
   });
 
   it('/mis-reportes/{folio} sin sesión pide iniciarla y conserva el destino', async () => {

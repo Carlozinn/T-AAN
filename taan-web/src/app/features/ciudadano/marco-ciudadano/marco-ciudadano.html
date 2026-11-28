@@ -1,7 +1,9 @@
 <header class="barra">
-  <a class="marca" routerLink="/mis-reportes">T’AAN</a>
+  <a class="marca" routerLink="/reportar">T’AAN</a>
   <nav aria-label="Principal">
+    <a routerLink="/reportar" routerLinkActive="activo" ariaCurrentWhenActive="page">Reportar</a>
     <a routerLink="/mis-reportes" routerLinkActive="activo" ariaCurrentWhenActive="page">Mis reportes</a>
+    <a routerLink="/perfil" routerLinkActive="activo" ariaCurrentWhenActive="page">Mi perfil</a>
     <button class="boton-secundario" type="button" (click)="salir()">Salir</button>
   </nav>
 </header>

@@ -37,7 +37,7 @@ export class SesionService {
     this.renovacion ??= this.auth.refrescarSesion({ refreshToken }).pipe(
       tap({
         next: (sesion) => this.iniciar(sesion),
-        error: (e) => e instanceof HttpErrorResponse && e.status >= 400 && e.status < 500 && this.borrar(),
+        error: (e) => e instanceof HttpErrorResponse && e.status >= 400 && e.status < 500 && this.descartar(),
       }),
       finalize(() => (this.renovacion = null)),
       shareReplay(1),
@@ -49,11 +49,12 @@ export class SesionService {
   salir(cierre?: CierreSesion): Observable<void> {
     return this.auth.cerrarSesion(cierre).pipe(
       catchError(() => of(null)),
-      map(() => this.borrar()),
+      map(() => this.descartar()),
     );
   }
 
-  private borrar(): void {
+  /** Borra la sesión local sin avisar al backend (p. ej. cuando la cuenta ya se eliminó). */
+  descartar(): void {
     localStorage.removeItem(CLAVE);
     this.estado.set(null);
   }

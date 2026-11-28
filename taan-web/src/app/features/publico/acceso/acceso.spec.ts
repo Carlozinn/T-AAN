@@ -51,12 +51,19 @@ describe('Acceso', () => {
     expect(navegar).toHaveBeenCalledWith('/mis-reportes/F-1');
   });
 
-  it('sin destino seguro va a Mis reportes', async () => {
+  it('sin destino seguro va a reportar', async () => {
     const navegar = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     const fixture = await crear('https://otro.mx');
     await entrar(fixture);
     backend().expectOne(`${BASE}/auth/ciudadanos/sesion`).flush(SESION);
-    expect(navegar).toHaveBeenCalledWith('/mis-reportes');
+    expect(navegar).toHaveBeenCalledWith('/reportar');
+  });
+
+  it('después de eliminar la cuenta lo confirma', async () => {
+    const fixture = TestBed.createComponent(Acceso);
+    fixture.componentRef.setInput('cuentaEliminada', '1');
+    await fixture.whenStable();
+    expect(texto(fixture)).toContain('Tu cuenta se eliminó.');
   });
 
   it('muestra el mensaje del backend si las credenciales no coinciden', async () => {

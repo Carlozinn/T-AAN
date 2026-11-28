@@ -1,18 +1,17 @@
-import { formatDate } from '@angular/common';
 import { ChangeDetectionStrategy, Component, LOCALE_ID, computed, inject } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-import { CuentaCiudadanaService } from '@taan/comun/api';
+import { PerfilCiudadano, describirSuspension } from '@taan/comun/cuenta/perfil-ciudadano';
 import { SesionService } from '@taan/comun/sesion/sesion.service';
 
 /**
- * Marco del portal ciudadano. Consulta el perfil al entrar para avisar si la cuenta está
+ * Marco del portal ciudadano. Provee el perfil a las pantallas hijas y avisa si la cuenta está
  * suspendida: puede consultar, pero no crear ni reabrir reportes (CU-04 FA-04, RF-043).
  */
 @Component({
   selector: 'taan-marco-ciudadano',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  providers: [PerfilCiudadano],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './marco-ciudadano.html',
   styleUrl: './marco-ciudadano.scss',
@@ -20,22 +19,12 @@ import { SesionService } from '@taan/comun/sesion/sesion.service';
 export class MarcoCiudadano {
   private readonly sesion = inject(SesionService);
   private readonly router = inject(Router);
-  private readonly cuenta = inject(CuentaCiudadanaService);
+  private readonly perfil = inject(PerfilCiudadano);
   private readonly locale = inject(LOCALE_ID);
 
-  private readonly perfil = rxResource({ stream: () => this.cuenta.obtenerPerfil() });
   protected readonly avisoSuspension = computed(() => {
-    const perfil = this.perfil.hasValue() ? this.perfil.value() : undefined;
-    if (perfil?.estado !== 'suspendida') {
-      return null;
-    }
-    const { hasta, motivo } = perfil.suspension ?? {};
-    const vigencia = hasta ? `hasta el ${formatDate(hasta, 'longDate', this.locale)}` : 'por tiempo indefinido';
-    return (
-      `Tu cuenta está suspendida ${vigencia}.` +
-      (motivo ? ` Motivo: ${motivo}.` : '') +
-      ' Puedes consultar tus reportes, pero no crear ni reabrir reportes.'
-    );
+    const texto = describirSuspension(this.perfil.perfil(), this.locale);
+    return texto && `${texto} Puedes consultar tus reportes, pero no crear ni reabrir reportes.`;
   });
 
   protected salir(): void {

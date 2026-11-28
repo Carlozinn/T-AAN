@@ -8,7 +8,10 @@
 }
 
 @if (cargado() && reportes().length === 0) {
-  <p class="tarjeta">Aún no tienes reportes. Cuando envíes uno, aquí podrás seguir su avance.</p>
+  <p class="tarjeta">
+    Aún no tienes reportes. Cuando envíes uno, aquí podrás seguir su avance.
+    <a routerLink="/reportar">Reportar un problema</a>
+  </p>
 } @else {
   <ul class="lista">
     @for (reporte of reportes(); track reporte.folio) {

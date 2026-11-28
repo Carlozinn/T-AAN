@@ -2,16 +2,17 @@ import { Routes } from '@angular/router';
 
 import { MarcoCiudadano } from './marco-ciudadano/marco-ciudadano';
 
-/**
- * Portal ciudadano (exige sesión ciudadana). Pendientes de siguientes etapas:
- * - nuevo-reporte: descripción, mapa y fotografías (CU-01)
- * - perfil: teléfono, avisos y eliminación de cuenta (CU-25)
- */
+/** Portal ciudadano (exige sesión ciudadana). */
 export const CIUDADANO_ROUTES: Routes = [
   {
     path: '',
     component: MarcoCiudadano,
     children: [
+      {
+        path: 'reportar',
+        title: 'Reportar un problema · T’AAN',
+        loadComponent: () => import('./nuevo-reporte/nuevo-reporte').then((m) => m.NuevoReporte),
+      },
       {
         path: 'mis-reportes',
         title: 'Mis reportes · T’AAN',
@@ -21,6 +22,11 @@ export const CIUDADANO_ROUTES: Routes = [
         path: 'mis-reportes/:folio',
         title: 'Detalle del reporte · T’AAN',
         loadComponent: () => import('./detalle-reporte/detalle-reporte').then((m) => m.DetalleReporte),
+      },
+      {
+        path: 'perfil',
+        title: 'Mi perfil · T’AAN',
+        loadComponent: () => import('./perfil/perfil').then((m) => m.Perfil),
       },
     ],
   },

@@ -5,7 +5,7 @@ import { finalize } from 'rxjs';
 import { AccesoService } from '@taan/comun/api';
 import { leerApiError } from '@taan/comun/errores/api-error';
 import { mensajeDeError } from '@taan/comun/errores/mensajes-error';
-import { ErrorCampo } from '../../../compartido/error-campo';
+import { ErrorCampo } from './error-campo';
 
 /** Reenvía el enlace de verificación (CU-24). Si ya se conoce el correo, basta un botón. */
 @Component({
